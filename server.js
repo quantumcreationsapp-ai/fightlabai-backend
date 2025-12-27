@@ -487,7 +487,7 @@ app.post('/analyze', upload.array('frames', 100), async (req, res) => {
 
     // Return immediately with analysis ID
     res.json({
-      analysisId: analysisId,
+      analysisID: analysisId,
       status: 'processing',
       message: 'Analysis started. Poll /api/analysis/status/:id for progress.'
     });
