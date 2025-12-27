@@ -3,16 +3,16 @@
  *
  * This server handles:
  * 1. Receiving video frames from the iOS app
- * 2. Uploading frames to Cloudflare R2 (temporary storage)
- * 3. Calling Claude AI to analyze the fight
- * 4. Returning structured analysis matching the iOS app's data models
- * 5. Cleaning up frames from R2 after analysis
+ * 2. Sending frames directly to Claude AI (as base64)
+ * 3. Returning structured analysis matching the iOS app's data models
+ *
+ * SIMPLIFIED: We send frames directly to Claude as base64 instead of using R2 URLs.
+ * This is more reliable and avoids public access issues with R2.
  */
 
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
-const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const Anthropic = require('@anthropic-ai/sdk');
 const { v4: uuidv4 } = require('uuid');
 
@@ -31,23 +31,7 @@ const upload = multer({
 
 // Middleware
 app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-
-// ============================================
-// CLOUDFLARE R2 SETUP (S3-Compatible)
-// ============================================
-
-const r2Client = new S3Client({
-  region: 'auto',
-  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
-  },
-});
-
-const R2_BUCKET = process.env.R2_BUCKET_NAME || 'fightlabai-videos';
-const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || `https://${R2_BUCKET}.${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+app.use(express.json({ limit: '100mb' }));
 
 // ============================================
 // CLAUDE AI SETUP
@@ -62,50 +46,10 @@ const anthropic = new Anthropic({
 // ============================================
 
 const analysisStore = new Map(); // Stores analysis results by ID
-const frameUrlStore = new Map(); // Stores frame URLs for cleanup
 
 // ============================================
 // HELPER FUNCTIONS
 // ============================================
-
-/**
- * Upload a single frame to Cloudflare R2
- * Returns the public URL of the uploaded frame
- */
-async function uploadFrameToR2(frameBuffer, analysisId, frameIndex) {
-  const key = `${analysisId}/frame_${String(frameIndex).padStart(3, '0')}.jpg`;
-
-  await r2Client.send(new PutObjectCommand({
-    Bucket: R2_BUCKET,
-    Key: key,
-    Body: frameBuffer,
-    ContentType: 'image/jpeg',
-  }));
-
-  // Return the URL that Claude can access
-  return `${R2_PUBLIC_URL}/${key}`;
-}
-
-/**
- * Delete all frames for an analysis from R2
- * Called after Claude finishes analyzing to save storage costs
- */
-async function deleteFramesFromR2(analysisId, frameCount) {
-  const deletePromises = [];
-
-  for (let i = 0; i < frameCount; i++) {
-    const key = `${analysisId}/frame_${String(i).padStart(3, '0')}.jpg`;
-    deletePromises.push(
-      r2Client.send(new DeleteObjectCommand({
-        Bucket: R2_BUCKET,
-        Key: key,
-      })).catch(err => console.error(`Failed to delete ${key}:`, err))
-    );
-  }
-
-  await Promise.all(deletePromises);
-  console.log(`Deleted ${frameCount} frames for analysis ${analysisId}`);
-}
 
 /**
  * Build the Claude prompt with EXACT JSON schema matching iOS models
@@ -402,22 +346,33 @@ RESPOND WITH ONLY THE JSON OBJECT. NO MARKDOWN, NO EXPLANATION, JUST PURE JSON.`
 
 /**
  * Call Claude API with frames and get analysis
+ * Sends frames as base64 directly to Claude (no R2 URLs needed)
  */
-async function analyzeWithClaude(frameUrls, config) {
+async function analyzeWithClaude(frames, config) {
   const prompt = buildClaudePrompt(config);
 
-  // Build the content array with images
+  // Build the content array with images as base64
   const content = [];
 
-  // Add images (Claude can handle up to 100 images)
-  for (const url of frameUrls) {
+  // Add images as base64 (Claude supports up to 20 images efficiently)
+  // We'll use a subset of frames if there are too many
+  const maxFrames = Math.min(frames.length, 20);
+  const step = Math.max(1, Math.floor(frames.length / maxFrames));
+
+  let frameCount = 0;
+  for (let i = 0; i < frames.length && frameCount < maxFrames; i += step) {
+    const frame = frames[i];
+    const base64Data = frame.buffer.toString('base64');
+
     content.push({
       type: 'image',
       source: {
-        type: 'url',
-        url: url,
+        type: 'base64',
+        media_type: 'image/jpeg',
+        data: base64Data,
       },
     });
+    frameCount++;
   }
 
   // Add the analysis prompt
@@ -426,7 +381,7 @@ async function analyzeWithClaude(frameUrls, config) {
     text: prompt,
   });
 
-  console.log(`Calling Claude API with ${frameUrls.length} frames...`);
+  console.log(`Calling Claude API with ${frameCount} frames...`);
 
   const response = await anthropic.messages.create({
     model: 'claude-sonnet-4-20250514',
@@ -506,6 +461,7 @@ app.post('/analyze', upload.array('frames', 100), async (req, res) => {
     }
 
     console.log(`Received ${frames.length} frames for analysis ${analysisId}`);
+    console.log(`Config:`, JSON.stringify(config, null, 2));
 
     // Store initial status
     analysisStore.set(analysisId, {
@@ -514,15 +470,17 @@ app.post('/analyze', upload.array('frames', 100), async (req, res) => {
       progress: 0,
       config: config,
       createdAt: new Date().toISOString(),
+      frames: frames, // Store frames temporarily for processing
     });
 
     // Process asynchronously (don't block the response)
-    processAnalysis(analysisId, frames, config).catch(err => {
+    processAnalysis(analysisId).catch(err => {
       console.error(`Analysis ${analysisId} failed:`, err);
       const stored = analysisStore.get(analysisId);
       if (stored) {
         stored.status = 'failed';
         stored.error = err.message;
+        delete stored.frames; // Clean up frames
         analysisStore.set(analysisId, stored);
       }
     });
@@ -546,41 +504,29 @@ app.post('/analyze', upload.array('frames', 100), async (req, res) => {
 /**
  * Process analysis in background
  */
-async function processAnalysis(analysisId, frames, config) {
+async function processAnalysis(analysisId) {
   const stored = analysisStore.get(analysisId);
+  const frames = stored.frames;
+  const config = stored.config;
 
   try {
-    // Step 1: Upload frames to R2 (30% progress)
-    console.log(`Uploading ${frames.length} frames to R2...`);
-    const frameUrls = [];
+    // Update progress - starting analysis
+    stored.progress = 10;
+    analysisStore.set(analysisId, stored);
 
-    for (let i = 0; i < frames.length; i++) {
-      const url = await uploadFrameToR2(frames[i].buffer, analysisId, i);
-      frameUrls.push(url);
+    console.log(`Processing ${frames.length} frames with Claude...`);
 
-      // Update progress
-      stored.progress = Math.round((i / frames.length) * 30);
-      analysisStore.set(analysisId, stored);
-    }
-
-    // Store frame URLs for cleanup later
-    frameUrlStore.set(analysisId, { count: frames.length });
-
-    console.log(`Uploaded ${frameUrls.length} frames to R2`);
+    // Update progress
     stored.progress = 30;
     analysisStore.set(analysisId, stored);
 
-    // Step 2: Call Claude API (30-90% progress)
-    console.log('Calling Claude API for analysis...');
-    stored.progress = 35;
-    analysisStore.set(analysisId, stored);
-
-    const analysisData = await analyzeWithClaude(frameUrls, config);
+    // Call Claude API with frames directly
+    const analysisData = await analyzeWithClaude(frames, config);
 
     stored.progress = 90;
     analysisStore.set(analysisId, stored);
 
-    // Step 3: Build complete response matching iOS AnalysisReport model
+    // Build complete response matching iOS AnalysisReport model
     const completeReport = {
       id: analysisId,
       config: config,
@@ -590,34 +536,21 @@ async function processAnalysis(analysisId, frames, config) {
       ...analysisData  // Spread all the analysis sections from Claude
     };
 
-    // Store complete report
+    // Store complete report and clean up frames
     stored.status = 'completed';
     stored.progress = 100;
     stored.report = completeReport;
+    delete stored.frames; // Free up memory
     analysisStore.set(analysisId, stored);
 
     console.log(`Analysis ${analysisId} completed successfully`);
-
-    // Step 4: Cleanup - Delete frames from R2
-    const frameData = frameUrlStore.get(analysisId);
-    if (frameData) {
-      await deleteFramesFromR2(analysisId, frameData.count);
-      frameUrlStore.delete(analysisId);
-    }
 
   } catch (error) {
     console.error(`Analysis ${analysisId} failed:`, error);
     stored.status = 'failed';
     stored.error = error.message;
+    delete stored.frames; // Clean up frames
     analysisStore.set(analysisId, stored);
-
-    // Still try to cleanup frames on error
-    const frameData = frameUrlStore.get(analysisId);
-    if (frameData) {
-      await deleteFramesFromR2(analysisId, frameData.count).catch(() => {});
-      frameUrlStore.delete(analysisId);
-    }
-
     throw error;
   }
 }
@@ -724,10 +657,10 @@ app.listen(PORT, () => {
 ║  Port: ${PORT}                                                ║
 ║                                                            ║
 ║  Endpoints:                                                ║
-║  • GET  /                      - Health check              ║
-║  • POST /analyze               - Submit frames for analysis║
+║  • GET  /                        - Health check            ║
+║  • POST /analyze                 - Submit frames           ║
 ║  • GET  /api/analysis/status/:id - Check progress          ║
-║  • GET  /analysis/:id          - Get complete report       ║
+║  • GET  /analysis/:id            - Get complete report     ║
 ║  • GET  /api/analysis/report/:id - Get report (alt path)   ║
 ╚════════════════════════════════════════════════════════════╝
   `);
