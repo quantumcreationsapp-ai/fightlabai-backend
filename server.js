@@ -268,6 +268,44 @@ Each fighter gets their OWN complete analysis with all sections.
     "predictedWinner": "<${fighter1Name} or ${fighter2Name}>",
     "winProbability": { "fighter1": <0-100>, "fighter2": <0-100> },
     "likelyOutcome": "<how the fight will likely play out>"
+  },
+
+  "gamePlan": {
+    "overallStrategy": "<overall strategy to beat ${fighter1Name} (the main opponent)>",
+    "roundByRound": [
+      { "roundNumber": <1 to ${userRounds}>, "objective": "<round objective>", "tactics": ["<tactic>"], "keyFocus": "<focus>" }
+    ],
+    "roundGamePlans": [
+      {
+        "roundNumber": <1 to ${userRounds}>,
+        "title": "<round title like 'Establish Range'>",
+        "planA": { "name": "<plan name>", "goal": "<specific goal>", "tactics": ["<specific tactic>"], "successIndicators": ["<what shows it's working>"], "switchTrigger": "<when to switch>" },
+        "planB": { "name": "<backup plan>", "goal": "<goal>", "tactics": ["<tactic>"], "successIndicators": ["<indicator>"], "switchTrigger": "<trigger>" },
+        "planC": { "name": "<emergency plan>", "goal": "<goal>", "tactics": ["<tactic>"], "successIndicators": ["<indicator>"], "switchTrigger": null }
+      }
+    ],
+    "keyTactics": ["<key tactic to use>"],
+    "thingsToAvoid": ["<what NOT to do>"]
+  },
+
+  "midFightAdjustments": {
+    "adjustments": [
+      { "ifCondition": "<if this happens...>", "thenAction": "<then do this...>" }
+    ]
+  },
+
+  "trainingRecommendations": {
+    "priorityDrills": ["<specific drill to practice>"],
+    "sparringFocus": ["<what to focus on in sparring>"],
+    "conditioning": ["<conditioning recommendation>"]
+  },
+
+  "keyInsights": {
+    "criticalObservations": ["<critical observation about the fight>"],
+    "winConditions": ["<how to win this fight>"],
+    "riskFactors": ["<what could go wrong>"],
+    "finalRecommendation": "<final advice summary>",
+    "confidenceLevel": "<High/Medium/Low>"
   }
 }
 
@@ -282,6 +320,10 @@ REQUIREMENTS FOR BOTH FIGHTERS MODE
 5. cardioAnalysis.roundByRound should have ${videoRounds} entries for each fighter
 6. Be objective - analyze each fighter independently based on what you observe
 7. The matchupAnalysis section compares the two fighters directly
+8. gamePlan should have ${userRounds} roundGamePlans entries (for the user's upcoming fight)
+9. Provide 5-6 specific midFightAdjustments
+10. Training recommendations should be specific and actionable
+11. IMPORTANT: Give DIFFERENT overallScores for each fighter based on their ACTUAL performance - don't give both fighters the same score!
 
 RESPOND WITH ONLY THE JSON OBJECT. NO MARKDOWN, NO EXPLANATION, JUST PURE JSON.`;
 }
