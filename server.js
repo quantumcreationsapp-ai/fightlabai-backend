@@ -1057,13 +1057,79 @@ function validateAndFixAnalysisData(data, config) {
       };
     }
 
+    // If Claude returned data at top level instead of in fighter objects, copy it to fighter1Analysis
+    // This handles cases where Claude doesn't follow the nested structure perfectly
+    const topLevelFields = ['executiveSummary', 'fightingStyleBreakdown', 'strikeAnalysis',
+      'grapplingAnalysis', 'defenseAnalysis', 'cardioAnalysis', 'fightIQ',
+      'strengthsWeaknesses', 'mistakePatterns', 'counterStrategy', 'fighterIdentification'];
+
+    topLevelFields.forEach(field => {
+      // If top-level has data but fighter1Analysis doesn't, copy it
+      if (data[field] && !data.fighter1Analysis[field]) {
+        console.log(`Copying top-level ${field} to fighter1Analysis`);
+        data.fighter1Analysis[field] = data[field];
+      }
+    });
+
     // Validate fighter1Analysis
     data.fighter1Analysis = validateSingleFighterAnalysis(data.fighter1Analysis, config.fighter1Name || 'Fighter 1', videoRounds);
 
     // Validate fighter2Analysis
     data.fighter2Analysis = validateSingleFighterAnalysis(data.fighter2Analysis, config.fighter2Name || 'Fighter 2', videoRounds);
 
+    // Ensure shared sections exist at top level for iOS compatibility
+    // Game Plan, Adjustments, Training, KeyInsights are shared between fighters
+    if (!data.gamePlan) {
+      data.gamePlan = {
+        overallStrategy: 'Implement a balanced game plan.',
+        roundByRound: [],
+        roundGamePlans: [],
+        keyTactics: [],
+        thingsToAvoid: []
+      };
+      // Generate default game plans for user rounds
+      for (let i = 1; i <= userRounds; i++) {
+        data.gamePlan.roundByRound.push({
+          roundNumber: i,
+          objective: `Round ${i} objective`,
+          tactics: ['Stay focused', 'Execute game plan'],
+          keyFocus: 'Maintain composure'
+        });
+        data.gamePlan.roundGamePlans.push({
+          roundNumber: i,
+          title: `Round ${i} Strategy`,
+          planA: { name: 'Primary Plan', goal: 'Execute strategy', tactics: ['Stay focused'], successIndicators: ['Landing strikes'], switchTrigger: 'If not working' },
+          planB: { name: 'Backup Plan', goal: 'Adjust approach', tactics: ['Change rhythm'], successIndicators: ['Creating openings'], switchTrigger: 'If needed' },
+          planC: { name: 'Emergency Plan', goal: 'Survive and recover', tactics: ['Clinch and control'], successIndicators: ['Regaining composure'], switchTrigger: null }
+        });
+      }
+    }
+
+    if (!data.midFightAdjustments) {
+      data.midFightAdjustments = { adjustments: [] };
+    }
+
+    if (!data.trainingRecommendations) {
+      data.trainingRecommendations = {
+        priorityDrills: [],
+        sparringFocus: [],
+        conditioning: []
+      };
+    }
+
+    if (!data.keyInsights) {
+      data.keyInsights = {
+        criticalObservations: [],
+        winConditions: [],
+        riskFactors: [],
+        finalRecommendation: 'Focus on your strengths and stay disciplined.',
+        confidenceLevel: 'Medium'
+      };
+    }
+
     console.log('Both fighters validation complete.');
+    console.log('Fighter1 strengthsWeaknesses:', JSON.stringify(data.fighter1Analysis.strengthsWeaknesses, null, 2));
+    console.log('Fighter2 strengthsWeaknesses:', JSON.stringify(data.fighter2Analysis.strengthsWeaknesses, null, 2));
     return data;
   }
 
