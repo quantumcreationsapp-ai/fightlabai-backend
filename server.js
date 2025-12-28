@@ -1143,7 +1143,7 @@ async function analyzeWithClaude(frames, config) {
   try {
     response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 10000, // Reduced from 16000 - response fits in ~6000 tokens typically
+      max_tokens: 16000, // Must be high enough for full JSON response - DO NOT REDUCE
       messages: [
         {
           role: 'user',
@@ -1182,11 +1182,25 @@ async function analyzeWithClaude(frames, config) {
 
   console.log(`Analysis completed at: ${new Date().toISOString()}`);
 
+  // Check for truncated response (stop_reason will be "max_tokens" if cut off)
+  const stopReason = response.stop_reason;
+  const inputTokens = response.usage?.input_tokens || 0;
+  const outputTokens = response.usage?.output_tokens || 0;
+
+  console.log(`Claude response stats: stop_reason=${stopReason}, input_tokens=${inputTokens}, output_tokens=${outputTokens}`);
+
+  if (stopReason === 'max_tokens') {
+    console.error('CRITICAL: Response was TRUNCATED due to max_tokens limit!');
+    console.error(`Used ${outputTokens} output tokens - need to increase max_tokens`);
+    throw new Error('RESPONSE_TRUNCATED: Analysis response was cut off. This is a server configuration issue - please contact support.');
+  }
+
   // Extract the JSON from Claude's response
   const responseText = response.content[0].text;
 
-  // Log raw response for debugging (first 500 chars)
+  // Log raw response for debugging (first 500 chars and last 200 chars)
   console.log('Claude raw response (first 500 chars):', responseText.substring(0, 500));
+  console.log('Claude raw response (last 200 chars):', responseText.substring(responseText.length - 200));
 
   // Parse JSON with robust extraction
   const analysisData = extractAndParseJSON(responseText);
@@ -1199,6 +1213,7 @@ async function analyzeWithClaude(frames, config) {
 
 /**
  * Extract JSON from Claude's response, handling markdown and extra text
+ * Also attempts to repair common JSON issues from truncated responses
  */
 function extractAndParseJSON(text) {
   // Remove markdown code blocks if present
@@ -1208,24 +1223,106 @@ function extractAndParseJSON(text) {
   cleaned = cleaned.replace(/^```json\s*/i, '').replace(/^```\s*/i, '');
   cleaned = cleaned.replace(/\s*```$/i, '');
 
+  // Log response length for debugging
+  console.log(`Response length: ${cleaned.length} characters`);
+
   // Try direct parse first
   try {
     return JSON.parse(cleaned);
   } catch (e) {
-    console.log('Direct parse failed, trying to extract JSON object...');
+    console.log('Direct parse failed:', e.message);
   }
 
   // Try to find JSON object in text
   const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
   if (jsonMatch) {
+    let jsonStr = jsonMatch[0];
+
+    // Try direct parse of extracted JSON
     try {
-      return JSON.parse(jsonMatch[0]);
+      return JSON.parse(jsonStr);
     } catch (e) {
-      console.error('Failed to parse extracted JSON:', e.message);
+      console.log('Extracted JSON parse failed, attempting repair:', e.message);
+
+      // Attempt to repair truncated JSON
+      jsonStr = repairTruncatedJSON(jsonStr);
+
+      try {
+        return JSON.parse(jsonStr);
+      } catch (e2) {
+        console.error('JSON repair failed:', e2.message);
+        console.error('JSON snippet around error:', jsonStr.substring(Math.max(0, jsonStr.length - 500)));
+      }
     }
   }
 
   throw new Error('Could not extract valid JSON from Claude response');
+}
+
+/**
+ * Attempt to repair truncated JSON by closing unclosed brackets
+ */
+function repairTruncatedJSON(jsonStr) {
+  console.log('Attempting to repair truncated JSON...');
+
+  // Count open and close brackets
+  let openBraces = 0;
+  let openBrackets = 0;
+  let inString = false;
+  let escapeNext = false;
+
+  for (let i = 0; i < jsonStr.length; i++) {
+    const char = jsonStr[i];
+
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
+    }
+
+    if (char === '\\') {
+      escapeNext = true;
+      continue;
+    }
+
+    if (char === '"' && !escapeNext) {
+      inString = !inString;
+      continue;
+    }
+
+    if (!inString) {
+      if (char === '{') openBraces++;
+      else if (char === '}') openBraces--;
+      else if (char === '[') openBrackets++;
+      else if (char === ']') openBrackets--;
+    }
+  }
+
+  console.log(`Unclosed braces: ${openBraces}, unclosed brackets: ${openBrackets}`);
+
+  // If we're in a string, close it
+  if (inString) {
+    jsonStr += '"';
+  }
+
+  // Remove trailing incomplete values (like partial strings or numbers)
+  jsonStr = jsonStr.replace(/,\s*"[^"]*$/, ''); // Remove incomplete string value
+  jsonStr = jsonStr.replace(/,\s*\d+\.?\d*$/, ''); // Remove incomplete number
+  jsonStr = jsonStr.replace(/:\s*"[^"]*$/, ': ""'); // Complete incomplete string after colon
+  jsonStr = jsonStr.replace(/,\s*$/, ''); // Remove trailing comma
+
+  // Close unclosed brackets
+  while (openBrackets > 0) {
+    jsonStr += ']';
+    openBrackets--;
+  }
+
+  // Close unclosed braces
+  while (openBraces > 0) {
+    jsonStr += '}';
+    openBraces--;
+  }
+
+  return jsonStr;
 }
 
 /**
