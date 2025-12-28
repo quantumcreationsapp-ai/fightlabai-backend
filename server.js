@@ -517,17 +517,40 @@ async function analyzeWithClaude(frames, config) {
   });
 
   console.log(`Calling Claude API with ${frameCount} frames...`);
+  console.log(`Analysis started at: ${new Date().toISOString()}`);
 
-  const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 16000,
-    messages: [
-      {
-        role: 'user',
-        content: content,
-      },
-    ],
-  });
+  // Create AbortController for timeout (5 minutes max for video analysis)
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+    console.error('Claude API call timed out after 5 minutes');
+  }, 5 * 60 * 1000); // 5 minutes
+
+  let response;
+  try {
+    response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 16000,
+      messages: [
+        {
+          role: 'user',
+          content: content,
+        },
+      ],
+    }, {
+      signal: controller.signal,
+    });
+  } catch (apiError) {
+    clearTimeout(timeoutId);
+    if (apiError.name === 'AbortError') {
+      throw new Error('TIMEOUT: Analysis took too long. Please try with a shorter video or fewer frames. Your credit should be refunded.');
+    }
+    throw apiError;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  console.log(`Analysis completed at: ${new Date().toISOString()}`);
 
   // Extract the JSON from Claude's response
   const responseText = response.content[0].text;
@@ -1257,6 +1280,11 @@ app.post('/analyze', upload.array('frames', 100), async (req, res) => {
       if (stored) {
         stored.status = 'failed';
         stored.error = err.message;
+        // Always refund credit on server-side failures
+        stored.shouldRefund = true;
+        stored.refundReason = err.message.includes('TIMEOUT')
+          ? 'Analysis timed out - please try with a shorter video'
+          : 'Server error during analysis';
         delete stored.frames; // Clean up frames
         analysisStore.set(analysisId, stored);
       }
@@ -1329,6 +1357,11 @@ async function processAnalysis(analysisId) {
     console.error(`Analysis ${analysisId} failed:`, error);
     stored.status = 'failed';
     stored.error = error.message;
+    // Always refund credit on server-side failures
+    stored.shouldRefund = true;
+    stored.refundReason = error.message.includes('TIMEOUT')
+      ? 'Analysis timed out - please try with a shorter video'
+      : 'Server error during analysis';
     delete stored.frames; // Clean up frames
     analysisStore.set(analysisId, stored);
     throw error;
@@ -1359,7 +1392,7 @@ app.get('/api/analysis/status/:id', (req, res) => {
     'failed': 'Failed'
   };
 
-  res.json({
+  const response = {
     status: statusMap[stored.status] || stored.status,
     progress: stored.progress,
     message: stored.status === 'completed'
@@ -1367,7 +1400,16 @@ app.get('/api/analysis/status/:id', (req, res) => {
       : stored.status === 'failed'
         ? stored.error || 'Analysis failed'
         : 'Analysis in progress'
-  });
+  };
+
+  // Include refund information if analysis failed
+  if (stored.status === 'failed') {
+    response.shouldRefund = stored.shouldRefund || false;
+    response.refundReason = stored.refundReason || null;
+    response.error = stored.error || 'Analysis failed';
+  }
+
+  res.json(response);
 });
 
 /**
