@@ -1065,13 +1065,15 @@ async function analyzeWithClaude(frames, config) {
   console.log(`Calling Claude API with ${frameCount} frames...`);
   console.log(`Analysis started at: ${new Date().toISOString()}`);
 
-  // Create AbortController for timeout (8 minutes max for video analysis)
-  // Increased from 5 minutes to handle longer videos with more frames
+  // Create AbortController for timeout (12 minutes max for video analysis)
+  // Must support 30-min videos with up to 100 frames as advertised
+  // Claude processing time scales with frame count: ~6 sec/frame + overhead
   const controller = new AbortController();
+  const timeoutMs = 12 * 60 * 1000; // 12 minutes
   const timeoutId = setTimeout(() => {
     controller.abort();
-    console.error('Claude API call timed out after 8 minutes');
-  }, 8 * 60 * 1000); // 8 minutes
+    console.error(`Claude API call timed out after 12 minutes (${frameCount} frames)`);
+  }, timeoutMs);
 
   let response;
   try {
@@ -1090,7 +1092,7 @@ async function analyzeWithClaude(frames, config) {
   } catch (apiError) {
     clearTimeout(timeoutId);
     if (apiError.name === 'AbortError') {
-      throw new Error('TIMEOUT: Analysis took too long (8+ minutes). Please try with a shorter video or fewer frames.');
+      throw new Error('TIMEOUT: Analysis took too long (12+ minutes). Please try again - the AI service may be experiencing high load.');
     }
     // Provide more specific error messages for Claude API errors
     const errorMessage = apiError.message || 'Unknown API error';
@@ -1833,13 +1835,29 @@ app.get('/', (req, res) => {
   res.json({
     message: 'FightLab AI Backend',
     status: 'online',
-    version: '2.0.0',
+    version: '2.1.0',
     endpoints: {
       analyze: 'POST /analyze',
       getAnalysis: 'GET /analysis/:id',
       status: 'GET /api/analysis/status/:id',
+      health: 'GET /health',
       test: 'GET /test-report'
     }
+  });
+});
+
+/**
+ * Dedicated Health Check - Use to warm up server before uploads
+ * GET /health
+ *
+ * Returns: { status: 'ready', timestamp, uptime }
+ */
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ready',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB'
   });
 });
 
