@@ -216,9 +216,9 @@ Each fighter gets their OWN complete analysis with all sections.
     },
     "executiveSummary": {
       "overallScore": <0-100>,
-      "summary": "<summary for ${fighter1Name}>",
-      "keyFindings": ["<finding>"],
-      "recommendedApproach": "<how to fight ${fighter1Name}>"
+      "summary": "<DETAILED 5-7 sentence comprehensive overview of ${fighter1Name}. Include fighting style, key strengths, notable weaknesses, performance under pressure, and threat assessment.>",
+      "keyFindings": ["<detailed finding with context>", "<finding with tactical implication>", "<pattern with frequency>", "<vulnerability with exploitation method>"],
+      "recommendedApproach": "<DETAILED 4-6 sentence strategic recommendation for fighting ${fighter1Name}. Explain primary strategy and WHY it works, backup approach, key techniques, and what to avoid.>"
     },
     "fightingStyleBreakdown": {
       "primaryStyle": "<${fighter1Name}'s primary style>",
@@ -285,9 +285,9 @@ Each fighter gets their OWN complete analysis with all sections.
     },
     "executiveSummary": {
       "overallScore": <0-100>,
-      "summary": "<summary for ${fighter2Name}>",
-      "keyFindings": ["<finding>"],
-      "recommendedApproach": "<how to fight ${fighter2Name}>"
+      "summary": "<DETAILED 5-7 sentence comprehensive overview of ${fighter2Name}. Include fighting style, key strengths, notable weaknesses, performance under pressure, and threat assessment.>",
+      "keyFindings": ["<detailed finding with context>", "<finding with tactical implication>", "<pattern with frequency>", "<vulnerability with exploitation method>"],
+      "recommendedApproach": "<DETAILED 4-6 sentence strategic recommendation for fighting ${fighter2Name}. Explain primary strategy and WHY it works, backup approach, key techniques, and what to avoid.>"
     },
     "fightingStyleBreakdown": {
       "primaryStyle": "<${fighter2Name}'s primary style>",
@@ -409,6 +409,24 @@ ${roleType !== 'study' ? `- Each fighter gets their OWN gamePlan, adjustments, t
 - Provide 5-6 specific midFightAdjustments per fighter
 - Training recommendations must be specific to beating THAT fighter's style` : `- Focus on pure analysis without actionable coaching recommendations`}
 
+═══════════════════════════════════════════════════════════
+🏆 PREMIUM QUALITY REQUIREMENT - $19.99 ANALYSIS 🏆
+═══════════════════════════════════════════════════════════
+
+This is a PREMIUM paid analysis. Users expect DEEP, DETAILED insights - NOT generic summaries.
+
+EVERY text field should be:
+- DETAILED: Multiple sentences with specific observations, not 1-2 line summaries
+- SPECIFIC: Reference actual moments, techniques, and patterns observed in the video
+- ACTIONABLE: Explain WHY something matters and HOW to use the information
+- EXPERT-LEVEL: Sound like advice from a professional fight analyst/coach
+
+❌ BAD: "Technical striker with good movement"
+✅ GOOD: "Technical counter-striker who excels at controlling distance using a stiff jab and lateral movement. Shows excellent timing on pull-back counters, but reliance on backing straight up under pressure was exploited multiple times."
+
+❌ BAD: "Pressure wrestling with body shots"
+✅ GOOD: "Your primary strategy should be pressure wrestling combined with body attacks. Close distance using feints, then shoot when he backs up - his takedown defense deteriorates when moving backward. On the feet, target his body to slow his movement and create further takedown opportunities."
+
 RESPOND WITH ONLY THE JSON OBJECT. NO MARKDOWN, NO EXPLANATION, JUST PURE JSON.`;
 }
 
@@ -470,69 +488,69 @@ ${fighter1Background ? `⚠️ User says "${fighterName}" has a ${fighter1Backgr
   const isStudyMode = roleType === 'study';
   const isFighterMode = roleType === 'fighter';
 
-  // Build user-centric sections for the JSON schema
+  // Build user-centric sections for the JSON schema - DETAILED for premium $19.99 analysis
   const userCentricJsonSchema = isStudyMode ? '' : `
   "gamePlan": {
-    "overallStrategy": "<string: ${isFighterMode ? 'your' : "your fighter's"} overall fight strategy>",
+    "overallStrategy": "<string: DETAILED 4-5 sentence strategic overview. Explain: (1) The primary game plan philosophy, (2) WHY this approach is effective against this opponent based on observed weaknesses, (3) Key phases of the fight to focus on, (4) Victory conditions and paths to win.>",
     "roundByRound": [
       {
         "roundNumber": <integer: 1 to ${userRounds}>,
-        "objective": "<string: ${isFighterMode ? 'your' : "your fighter's"} round objective>",
-        "tactics": ["<string: specific tactic>"],
-        "keyFocus": "<string: main focus for round>"
+        "objective": "<string: DETAILED 2-3 sentence round objective explaining WHAT to accomplish and WHY it sets up later rounds>",
+        "tactics": ["<string: specific tactic with explanation of execution>", "<string>", "<string>"],
+        "keyFocus": "<string: main focus with reasoning - e.g., 'Establish jab to set up takedown entries because opponent overreacts to strikes'>"
       }
     ],
     "roundGamePlans": [
       {
         "roundNumber": <integer: 1 to ${userRounds}>,
-        "title": "<string: round title>",
+        "title": "<string: descriptive round title - e.g., 'Establish Range Control & Test Takedown Defense'>",
         "planA": {
           "name": "<string: plan name>",
-          "goal": "<string: what to achieve>",
-          "tactics": ["<string>"],
-          "successIndicators": ["<string: sign plan is working>"],
-          "switchTrigger": "<string or null: when to switch plans>"
+          "goal": "<string: DETAILED 2-sentence goal explaining what to achieve and why>",
+          "tactics": ["<string: specific tactic with execution detail>", "<string>", "<string>"],
+          "successIndicators": ["<string: specific observable sign that plan is working>", "<string>"],
+          "switchTrigger": "<string or null: SPECIFIC condition that signals need to switch - e.g., 'If opponent sprawls successfully on 3+ takedown attempts'>"
         },
         "planB": {
           "name": "<string>",
-          "goal": "<string>",
-          "tactics": ["<string>"],
-          "successIndicators": ["<string>"],
+          "goal": "<string: DETAILED goal with reasoning>",
+          "tactics": ["<string: specific tactic>", "<string>", "<string>"],
+          "successIndicators": ["<string>", "<string>"],
           "switchTrigger": "<string or null>"
         },
         "planC": {
           "name": "<string>",
-          "goal": "<string>",
-          "tactics": ["<string>"],
+          "goal": "<string: DETAILED emergency/safety goal>",
+          "tactics": ["<string>", "<string>"],
           "successIndicators": ["<string>"],
           "switchTrigger": null
         }
       }
     ],
-    "keyTactics": ["<string: key tactic>"],
-    "thingsToAvoid": ["<string: what NOT to do>"]
+    "keyTactics": ["<string: key tactic WITH detailed explanation of how and when to use it>", "<string>", "<string>", "<string>"],
+    "thingsToAvoid": ["<string: what NOT to do AND WHY - explain the danger/consequence - e.g., 'Avoid trading in the pocket because opponent has faster hands and KO power'>", "<string: another thing to avoid with reasoning>", "<string>", "<string>"]
   },
 
   "midFightAdjustments": {
     "adjustments": [
       {
-        "ifCondition": "<string: if this happens...>",
-        "thenAction": "<string: then ${isFighterMode ? 'you should' : 'your fighter should'} do this...>"
+        "ifCondition": "<string: SPECIFIC observable condition - e.g., 'If opponent starts timing your level changes and sprawling early'>",
+        "thenAction": "<string: DETAILED 2-sentence response explaining what to do and why - e.g., 'Switch to body shots to bring their hands down, then shoot when they react to body attack. This creates openings for takedowns by changing their defensive posture.'>"
       }
     ]
   },
 
   "trainingRecommendations": {
-    "priorityDrills": ["<string: specific drill ${isFighterMode ? 'you' : 'your fighter'} should practice>"],
-    "sparringFocus": ["<string: sparring focus area>"],
-    "conditioning": ["<string: conditioning recommendation>"]
+    "priorityDrills": ["<string: specific drill WITH explanation of what it develops and why it's important for this matchup>", "<string>", "<string>"],
+    "sparringFocus": ["<string: sparring scenario WITH specific instructions - e.g., 'Spar against tall counter-strikers, focus on closing distance without eating jabs'>", "<string>"],
+    "conditioning": ["<string: conditioning protocol WITH reasoning - e.g., 'High-intensity 5-minute rounds with wrestling scrambles to simulate late-round grappling'>", "<string>"]
   },
 
   "keyInsights": {
-    "criticalObservations": ["<string: critical observation about opponent>"],
-    "winConditions": ["<string: how ${isFighterMode ? 'you' : 'your fighter'} wins>"],
-    "riskFactors": ["<string: potential risk>"],
-    "finalRecommendation": "<string: final advice>",
+    "criticalObservations": ["<string: DETAILED critical observation explaining significance and tactical implication>", "<string>", "<string>", "<string>"],
+    "winConditions": ["<string: SPECIFIC path to victory with conditions - e.g., 'Accumulate takedowns in rounds 1-3 to build lead, then control pace in championship rounds'>", "<string>", "<string>"],
+    "riskFactors": ["<string: DETAILED risk with explanation of how to mitigate - e.g., 'Risk: Getting caught on entries. Mitigation: Use body shots and feints before shooting'>", "<string>", "<string>"],
+    "finalRecommendation": "<string: DETAILED 3-4 sentence final strategic advice synthesizing all insights. Include the #1 priority, backup approach, and key mental focus.>",
     "confidenceLevel": "<string: 'High', 'Medium', or 'Low'>"
   },`;
 
@@ -609,20 +627,20 @@ Use camelCase for all field names. All scores are 0-100 unless noted.
 
   "executiveSummary": {
     "overallScore": <number 0-100 - THIS IS THE THREAT LEVEL: How dangerous/skilled this fighter appears based on the video. 90+ = Elite level, 80-89 = Very skilled, 70-79 = Skilled, 60-69 = Average, Below 60 = Developing>,
-    "summary": "<string: 2-3 sentence overview of what you OBSERVED in the video>",
-    "keyFindings": ["<string: specific observation from video>", "<string>", "<string>", "<string>"],
-    "recommendedApproach": "<string: overall strategy recommendation based on observed weaknesses>"
+    "summary": "<string: DETAILED 5-7 sentence comprehensive overview. Include: (1) Primary fighting style and approach, (2) Key technical strengths observed, (3) Notable weaknesses or tendencies exploited, (4) How they perform under pressure, (5) Overall threat assessment. This should read like expert fight analysis, not a brief summary.>",
+    "keyFindings": ["<string: specific detailed observation with context - explain WHY this matters>", "<string: another key finding with tactical implication>", "<string: pattern or tendency with frequency if observed>", "<string: vulnerability or opportunity with exploitation method>", "<string: additional insight>"],
+    "recommendedApproach": "<string: DETAILED 4-6 sentence strategic recommendation. Explain: (1) The primary strategy and WHY it works against this fighter, (2) Secondary approach if primary fails, (3) Key techniques to emphasize and why, (4) What to avoid and why. This should provide clear, actionable guidance.>"
   },
 
   "fightingStyleBreakdown": {
     "primaryStyle": "<string: BASED ON WHAT YOU SEE IN VIDEO - e.g., 'Wrestler' if they shoot takedowns, 'Pressure Boxer' if they throw punches, 'Grappler' if they work on the ground>",
     "stance": "<string: 'Orthodox' or 'Southpaw' - observe their lead hand/foot>",
-    "secondarySkills": ["<string: secondary skill OBSERVED>", "<string>"],
+    "secondarySkills": ["<string: secondary skill OBSERVED with brief explanation>", "<string>", "<string>"],
     "baseMartialArts": ["<string: martial arts DEMONSTRATED in video - e.g., 'Wrestling', 'Boxing', 'BJJ', 'Muay Thai'>"],
-    "styleDescription": "<string: detailed description of what you OBSERVED them doing most in the video>",
-    "secondaryAttributes": ["<string: attribute like 'Elite Cardio', 'Knockout Power', 'Submission Threat' based on VIDEO>", "<string>", "<string>"],
-    "comparableFighters": ["<string: famous fighter with SIMILAR STYLE to what you observed - must match their actual fighting style>", "<string>", "<string>"],
-    "tacticalTendencies": ["<string: specific tactical pattern OBSERVED in video>", "<string>", "<string>", "<string>"]
+    "styleDescription": "<string: DETAILED 3-4 sentence technical breakdown. Describe their preferred range, rhythm, typical combinations, how they set up attacks, and what makes their style effective or ineffective.>",
+    "secondaryAttributes": ["<string: attribute with context - e.g., 'Elite Cardio - maintained output through round 5'>", "<string>", "<string>"],
+    "comparableFighters": ["<string: famous fighter with SIMILAR STYLE - explain briefly why the comparison fits>", "<string>"],
+    "tacticalTendencies": ["<string: specific pattern with frequency/timing if observed - e.g., 'Throws lead hook after opponent jabs (seen 6+ times)'>", "<string>", "<string>", "<string>", "<string>"]
   },
 
   "strikeAnalysis": {
@@ -688,30 +706,31 @@ Use camelCase for all field names. All scores are 0-100 unless noted.
     "strengths": [
       {
         "title": "<string: strength name>",
-        "description": "<string: detailed description>",
+        "description": "<string: DETAILED 2-3 sentence explanation. Describe HOW they demonstrate this strength, specific examples from the video, and why it makes them dangerous.>",
         "score": <number 0-100>,
-        "statistics": "<string or null: relevant stat>"
+        "statistics": "<string or null: relevant stat with context - e.g., 'Landed 8 of 10 counter punches'>"
       }
     ],
     "weaknesses": [
       {
         "title": "<string: weakness name>",
-        "description": "<string: detailed description>",
+        "description": "<string: DETAILED 2-3 sentence explanation. Describe specific instances where this weakness appeared and the consequences.>",
         "severity": <number 0-100>,
-        "exploitablePattern": "<string: how opponent exploits this>",
-        "frequency": "<string or null: how often it occurs>",
-        "exploitationStrategy": "<string: specific way to exploit>"
+        "exploitablePattern": "<string: DETAILED explanation of how opponents successfully exploited this - include timing and setups>",
+        "frequency": "<string or null: how often it occurs with specifics - e.g., 'Every time opponent pressured forward'>",
+        "exploitationStrategy": "<string: DETAILED 2-sentence tactical plan to exploit this weakness, including specific techniques and timing>"
       }
     ],
-    "opportunitiesToExploit": ["<string: opportunity>"]
+    "opportunitiesToExploit": ["<string: DETAILED opportunity with specific technique and timing to use>", "<string>", "<string>"]
   },
 
   "mistakePatterns": {
     "patterns": [
       {
-        "pattern": "<string: description of repeated mistake>",
+        "pattern": "<string: DETAILED description of repeated mistake - include when/why it happens and what opening it creates>",
         "frequency": <integer: times observed>,
-        "severity": "<string: 'high', 'medium', or 'low'>"
+        "severity": "<string: 'high', 'medium', or 'low'>",
+        "howToExploit": "<string: specific technique and timing to capitalize on this mistake>"
       }
     ]
   },
@@ -719,17 +738,17 @@ Use camelCase for all field names. All scores are 0-100 unless noted.
   "counterStrategy": {
     "bestCounter": {
       "style": "<string: recommended fighting style to use>",
-      "reason": "<string: why this works>"
+      "reason": "<string: DETAILED 2-3 sentence explanation of WHY this style works. Reference specific weaknesses observed and how this style exploits them.>"
     },
     "secondBestCounter": {
       "style": "<string>",
-      "reason": "<string>"
+      "reason": "<string: DETAILED explanation with specific reasoning>"
     },
     "thirdBestCounter": {
       "style": "<string>",
-      "reason": "<string>"
+      "reason": "<string: DETAILED explanation with specific reasoning>"
     },
-    "techniquesToEmphasize": ["<string: specific technique>"]
+    "techniquesToEmphasize": ["<string: specific technique WITH explanation of why it's effective>", "<string>", "<string>", "<string>"]
   },
 ${userCentricJsonSchema}
   "roundByRoundMetrics": {
@@ -812,6 +831,26 @@ ${!isStudyMode ? `7. ADJUSTMENTS: Provide 5-6 if/then adjustments
 8. ` : `6. `}Use the fighter's actual name "${fighterName}" throughout the report
 ${!isStudyMode ? `9. ` : `7. `}Be specific and actionable in all ${isStudyMode ? 'observations' : 'recommendations'}
 ${!isStudyMode ? `10. ` : `8. `}All number scores should be realistic (not all 80s - vary them based on actual observation)
+
+═══════════════════════════════════════════════════════════
+🏆 PREMIUM QUALITY REQUIREMENT - $19.99 ANALYSIS 🏆
+═══════════════════════════════════════════════════════════
+
+This is a PREMIUM paid analysis. Users expect DEEP, DETAILED insights - NOT generic summaries.
+
+EVERY text field should be:
+- DETAILED: Multiple sentences with specific observations, not 1-2 line summaries
+- SPECIFIC: Reference actual moments, techniques, and patterns observed in the video
+- ACTIONABLE: Explain WHY something matters and HOW to use the information
+- EXPERT-LEVEL: Sound like advice from a professional fight analyst/coach
+
+❌ BAD (too generic): "Technical striker with good movement"
+✅ GOOD (detailed): "Technical counter-striker who excels at controlling distance using a stiff jab and lateral movement. Shows excellent timing on pull-back counters, particularly landing clean right hands when opponents overcommit. However, his reliance on backing straight up under pressure was exploited multiple times, suggesting vulnerability to aggressive cage-cutting."
+
+❌ BAD (too brief): "Pressure wrestling with body shots"
+✅ GOOD (detailed): "Your primary strategy should be pressure wrestling combined with body attacks. Close distance using feints and jab entries, then shoot takedowns when he backs up - his takedown defense deteriorates significantly when moving backward. On the feet, target his body with hooks and uppercuts when he shells up, as this will slow his movement and create further takedown opportunities. Avoid standing at range where he's most comfortable counter-striking."
+
+Every section should demonstrate this level of depth and specificity.
 
 ═══════════════════════════════════════════════════════════
 CRITICAL REMINDERS
