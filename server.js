@@ -85,6 +85,18 @@ ${config.fighter1Description ? `APPEARANCE: ${config.fighter1Description}` : ''}
   return `You are an expert MMA fight analyst. Analyze the provided fight video frames and generate a comprehensive tactical analysis.
 
 ═══════════════════════════════════════════════════════════
+CRITICAL INSTRUCTION - VIDEO-ONLY ANALYSIS
+═══════════════════════════════════════════════════════════
+
+**IMPORTANT**: Base your ENTIRE analysis ONLY on what you observe in these video frames.
+- Do NOT use any prior knowledge about the fighter's name or reputation
+- Do NOT assume anything based on who the fighter is
+- ONLY analyze what you can actually SEE in the video frames
+- If the fighter primarily shoots takedowns and controls on the ground, they are a WRESTLER/GRAPPLER
+- If the fighter primarily throws punches and kicks standing, they are a STRIKER
+- Identify their PRIMARY style based on what they DO MOST in the video
+
+═══════════════════════════════════════════════════════════
 FIGHTER INFORMATION
 ═══════════════════════════════════════════════════════════
 ${fighterContext}
@@ -102,18 +114,18 @@ Use camelCase for all field names. All scores are 0-100 unless noted.
 
 {
   "executiveSummary": {
-    "overallScore": <number 0-100>,
-    "summary": "<string: 2-3 sentence overview>",
-    "keyFindings": ["<string>", "<string>", "<string>", "<string>"],
-    "recommendedApproach": "<string: overall strategy recommendation>"
+    "overallScore": <number 0-100 - THIS IS THE THREAT LEVEL: How dangerous/skilled this fighter appears based on the video. 90+ = Elite level, 80-89 = Very skilled, 70-79 = Skilled, 60-69 = Average, Below 60 = Developing>,
+    "summary": "<string: 2-3 sentence overview of what you OBSERVED in the video>",
+    "keyFindings": ["<string: specific observation from video>", "<string>", "<string>", "<string>"],
+    "recommendedApproach": "<string: overall strategy recommendation based on observed weaknesses>"
   },
 
   "fightingStyleBreakdown": {
-    "primaryStyle": "<string: e.g., 'Orthodox Boxer', 'Wrestler', 'Muay Thai Fighter'>",
-    "stance": "<string: 'Orthodox' or 'Southpaw'>",
-    "secondarySkills": ["<string>", "<string>"],
-    "baseMartialArts": ["<string: e.g., 'Boxing', 'Wrestling', 'BJJ'>"],
-    "styleDescription": "<string: detailed style description>"
+    "primaryStyle": "<string: BASED ON WHAT YOU SEE IN VIDEO - e.g., 'Wrestler' if they shoot takedowns, 'Pressure Boxer' if they throw punches, 'Grappler' if they work on the ground>",
+    "stance": "<string: 'Orthodox' or 'Southpaw' - observe their lead hand/foot>",
+    "secondarySkills": ["<string: secondary skill OBSERVED>", "<string>"],
+    "baseMartialArts": ["<string: martial arts DEMONSTRATED in video - e.g., 'Wrestling', 'Boxing', 'BJJ', 'Muay Thai'>"],
+    "styleDescription": "<string: detailed description of what you OBSERVED them doing most in the video>"
   },
 
   "strikeAnalysis": {
@@ -333,13 +345,32 @@ REQUIREMENTS
 1. GAME PLANS: Create EXACTLY ${userRounds} roundByRound entries and ${userRounds} roundGamePlans entries (for rounds 1-${userRounds})
 2. ROUND METRICS: Create EXACTLY ${videoRounds} entries in roundByRoundMetrics.rounds (for rounds 1-${videoRounds} from video)
 3. CARDIO: Create ${videoRounds} roundByRound entries in cardioAnalysis
-4. STRENGTHS: Provide 3-5 strengths with scores
-5. WEAKNESSES: Provide 3-5 weaknesses with exploitation strategies
-6. MISTAKES: Provide 3-5 mistake patterns
+4. STRENGTHS: Provide 3-5 strengths with scores - ONLY what you OBSERVED in the video
+5. WEAKNESSES: Provide 3-5 weaknesses with exploitation strategies - ONLY what you OBSERVED
+6. MISTAKES: Provide 3-5 mistake patterns you actually SAW in the video
 7. ADJUSTMENTS: Provide 5-6 if/then adjustments
 8. Use the fighter's actual name "${fighterName}" throughout the report
 9. Be specific and actionable in all recommendations
 10. All number scores should be realistic (not all 80s - vary them based on actual observation)
+
+═══════════════════════════════════════════════════════════
+CRITICAL REMINDERS
+═══════════════════════════════════════════════════════════
+
+- **primaryStyle** MUST reflect what you SEE them doing MOST in the video:
+  - If they shoot takedowns and wrestle → "Wrestler" or "Grappler"
+  - If they primarily box → "Boxer" or "Pressure Boxer"
+  - If they use clinch and knees → "Muay Thai Fighter"
+  - If they do submissions → "BJJ Specialist" or "Submission Grappler"
+
+- **overallScore** is the THREAT LEVEL (how dangerous they appear):
+  - 90-100: Elite, championship caliber performance in the video
+  - 80-89: Very skilled, high-level performance
+  - 70-79: Skilled, competent performance
+  - 60-69: Average, some clear weaknesses shown
+  - Below 60: Developing, many areas need improvement
+
+- Do NOT assume based on fighter names - analyze ONLY the video frames
 
 RESPOND WITH ONLY THE JSON OBJECT. NO MARKDOWN, NO EXPLANATION, JUST PURE JSON.`;
 }
