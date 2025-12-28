@@ -141,17 +141,35 @@ function buildBothFightersPrompt(config) {
 
     return `
     "gamePlan": {
-      "overallStrategy": "<${perspective.subject}'s overall strategy to beat ${fighterName}>",
-      "roundByRound": [{ "roundNumber": <1-${userRounds}>, "objective": "<what ${perspective.action} do>", "tactics": ["<${perspective.subject}'s tactic>"], "keyFocus": "<${perspective.subject}'s focus>" }],
+      "overallStrategy": "<DETAILED 3-4 sentence overall strategy for ${perspective.subject} to beat ${fighterName}. Explain the primary approach, WHY it works against this opponent's style, and how to execute it.>",
+      "roundByRound": [{ "roundNumber": <1-${userRounds}>, "objective": "<2-3 sentence round objective explaining WHAT to do and WHY>", "tactics": ["<detailed tactic with explanation>", "<another tactic with context>"], "keyFocus": "<specific focus area for this round>" }],
       "roundGamePlans": [{
         "roundNumber": <1-${userRounds}>,
-        "title": "<round strategy title>",
-        "planA": { "name": "<plan name>", "goal": "<${perspective.goal} goal vs ${fighterName}>", "tactics": ["<specific tactic for ${perspective.subject}>"], "successIndicators": ["<what shows ${perspective.subject} is winning>"], "switchTrigger": "<when ${perspective.action} switch>" },
-        "planB": { "name": "<backup>", "goal": "<goal>", "tactics": ["<tactic>"], "successIndicators": ["<indicator>"], "switchTrigger": "<trigger>" },
-        "planC": { "name": "<emergency>", "goal": "<goal>", "tactics": ["<tactic>"], "successIndicators": ["<indicator>"], "switchTrigger": null }
+        "title": "<descriptive round strategy title>",
+        "planA": {
+          "name": "<clear plan name>",
+          "goal": "<2-3 sentence goal explaining what ${perspective.subject} wants to achieve and WHY this works against ${fighterName}>",
+          "tactics": ["<detailed tactic: WHAT to do + HOW to do it + WHY it works>", "<second detailed tactic with full explanation>", "<third tactic with context>"],
+          "successIndicators": ["<specific sign that the plan is working>", "<another measurable indicator>"],
+          "switchTrigger": "<clear condition: when exactly ${perspective.action} switch to Plan B>"
+        },
+        "planB": {
+          "name": "<backup plan name>",
+          "goal": "<2-3 sentence backup goal>",
+          "tactics": ["<detailed backup tactic with explanation>", "<another backup tactic>"],
+          "successIndicators": ["<indicator>"],
+          "switchTrigger": "<when to switch to Plan C>"
+        },
+        "planC": {
+          "name": "<emergency plan name>",
+          "goal": "<emergency goal focused on survival/reset>",
+          "tactics": ["<emergency tactic with explanation>"],
+          "successIndicators": ["<sign that emergency plan is working>"],
+          "switchTrigger": null
+        }
       }],
-      "keyTactics": ["<key tactic ${perspective.subject} should use against ${fighterName}>"],
-      "thingsToAvoid": ["<what ${perspective.subject} should NOT do against ${fighterName}>"]
+      "keyTactics": ["<DETAILED key tactic: explain WHAT, HOW, and WHY this works against ${fighterName}>", "<another detailed tactic with full context>", "<third detailed tactic>"],
+      "thingsToAvoid": ["<Thing to avoid + WHY: Explain the specific action to avoid and the CONSEQUENCE if ${perspective.subject} does it. Example: 'Avoid trading hooks in the pocket - ${fighterName} has faster hand speed and will land first, leading to accumulative damage'>", "<Another thing to avoid with clear explanation of WHY it's dangerous against ${fighterName}>", "<Third thing to avoid with consequence explanation>"]
     },
     "midFightAdjustments": {
       "adjustments": [{ "ifCondition": "<if ${perspective.subject} faces this situation vs ${fighterName}>", "thenAction": "<what ${perspective.action} do>" }]
@@ -412,27 +430,50 @@ ${roleType !== 'study' ? `- Each fighter gets their OWN gamePlan, adjustments, t
 - Training recommendations must be specific to beating THAT fighter's style` : `- Focus on pure analysis without actionable coaching recommendations`}
 
 ═══════════════════════════════════════════════════════════
-🚨 CRITICAL: VIDEO-FIRST MATCHUP ANALYSIS 🚨
+🚨🚨🚨 ABSOLUTE RULE: VIDEO-FIRST MATCHUP ANALYSIS 🚨🚨🚨
 ═══════════════════════════════════════════════════════════
 
-The matchupAnalysis section MUST be based on WHAT YOU OBSERVE IN THE VIDEO, not theoretical matchup advantages.
+⚠️ THIS IS THE MOST IMPORTANT SECTION - GET THIS WRONG AND THE ENTIRE ANALYSIS FAILS ⚠️
 
-❌ WRONG APPROACH:
-"Wrestler usually beats striker, so I'll predict the wrestler wins."
+The matchupAnalysis MUST reflect WHAT ACTUALLY HAPPENED IN THE VIDEO.
+DO NOT use theoretical matchup advantages. DO NOT ignore fight-ending events.
 
-✅ CORRECT APPROACH:
-"In the video, Fighter A knocked down Fighter B in round 2 and landed significantly more clean strikes. Based on this OBSERVED performance, Fighter A is the predicted winner."
+═══════════════════════════════════════════════════════════
+🥊 KNOCKOUT/TKO/FINISH RULE (MANDATORY) 🥊
+═══════════════════════════════════════════════════════════
 
-CRITICAL RULES FOR MATCHUP PREDICTION:
-1. If you see a KNOCKDOWN → This HEAVILY favors the fighter who scored it
-2. If you see one fighter DOMINATING on the ground → This favors them
-3. If you see one fighter HURTING the other repeatedly → This favors them
-4. If the video shows a clear winner → Predict THAT winner regardless of style matchup theory
-5. The "predictedWinner" should match who ACTUALLY performed better in the video
-6. Include ALL critical moments (knockdowns, near-finishes) in the "criticalMoments" array
-7. winProbability should reflect OBSERVED dominance, not theoretical advantages
+IF YOU SEE A KNOCKOUT, TKO, OR FIGHT-ENDING MOMENT:
+→ The fighter who SCORED THE FINISH is the predicted winner (100% of the time)
+→ Give them 85-95% win probability
+→ The "criticalMoments" MUST include the finish
+→ The "predictionReasoning" MUST explain the finish
 
-Example: If ${fighter1Name} knocked down ${fighter2Name} in the video, ${fighter1Name} should likely be the predicted winner with higher win probability, REGARDLESS of fighting style matchup theory.
+This is NON-NEGOTIABLE. A knockout = that fighter wins. Period.
+
+❌ ABSOLUTELY WRONG:
+Video shows Fighter A knocking out Fighter B → Predicted Winner: Fighter B
+(THIS DESTROYS USER TRUST - NEVER DO THIS)
+
+✅ CORRECT:
+Video shows Fighter A knocking out Fighter B → Predicted Winner: Fighter A (95%)
+"predictionReasoning": "Fighter A scored a devastating knockout, ending the fight decisively."
+
+═══════════════════════════════════════════════════════════
+📊 PREDICTION HIERARCHY (IN ORDER OF IMPORTANCE)
+═══════════════════════════════════════════════════════════
+
+1. KNOCKOUT/TKO/SUBMISSION → Fighter who finished wins (85-95%)
+2. KNOCKDOWNS → Fighter with more knockdowns heavily favored (70-85%)
+3. NEAR-FINISHES → Fighter who had opponent in serious trouble (65-75%)
+4. DOMINANT CONTROL → Fighter who controlled most of the fight (55-65%)
+5. VOLUME/ACTIVITY → Only use if no clear moments above (50-60%)
+
+NEVER let #5 override #1-4. A knockdown matters more than "landing consistently."
+
+❌ WRONG: "Sterling landed more consistently, so Sterling wins" (ignoring Sean's knockout)
+✅ RIGHT: "Sean knocked out Sterling, making him the clear winner despite Sterling's earlier volume"
+
+Example: If ${fighter1Name} knocked down/knocked out ${fighter2Name}, then ${fighter1Name} is the predicted winner with 75-95% probability. This is MANDATORY regardless of what else happened in the fight.
 
 ═══════════════════════════════════════════════════════════
 🏆 PREMIUM QUALITY REQUIREMENT - $19.99 ANALYSIS 🏆
@@ -451,6 +492,27 @@ EVERY text field should be:
 
 ❌ BAD: "Pressure wrestling with body shots"
 ✅ GOOD: "Your primary strategy should be pressure wrestling combined with body attacks. Close distance using feints, then shoot when he backs up - his takedown defense deteriorates when moving backward. On the feet, target his body to slow his movement and create further takedown opportunities."
+
+═══════════════════════════════════════════════════════════
+📋 GAME PLAN QUALITY REQUIREMENTS (CRITICAL USP) 📋
+═══════════════════════════════════════════════════════════
+
+The Game Plan is one of our CORE features. It MUST be detailed and actionable.
+
+FOR "overallStrategy":
+❌ BAD: "Pressure and wrestle"
+✅ GOOD: "Implement a pressure-based attack focusing on closing distance and initiating clinch exchanges. His poor takedown defense (visible when backing up) creates opportunities for reactive shots. On the feet, target the body to slow his movement and set up takedowns. If he starts finding range, immediately close distance - allowing him to establish his jab rhythm is dangerous."
+
+FOR "thingsToAvoid" (MUST explain WHY):
+❌ BAD: "Don't stand and trade"
+✅ GOOD: "Avoid prolonged exchanges at boxing range - he has faster hands and better timing on counters, which led to his knockdown in round 2. Every second spent trading increases your damage accumulation."
+
+❌ BAD: "Don't let him get comfortable"
+✅ GOOD: "Avoid allowing him to establish jab rhythm - once he finds his range (as seen in the first two minutes), his counter-right becomes extremely dangerous. Constant pressure prevents this rhythm from developing."
+
+FOR "tactics" in roundGamePlans:
+❌ BAD: "Use leg kicks"
+✅ GOOD: "Attack his lead leg with inside and outside low kicks whenever he squares his stance - he showed zero checking ability and his mobility visibly decreased after accumulating leg damage in round 2."
 
 RESPOND WITH ONLY THE JSON OBJECT. NO MARKDOWN, NO EXPLANATION, JUST PURE JSON.`;
 }
