@@ -441,6 +441,67 @@ function extractAndParseJSON(text) {
 }
 
 /**
+ * Normalize config to ensure all dates are ISO8601 strings
+ * iOS Swift's JSONEncoder uses Double (seconds since reference date) by default,
+ * but JSONDecoder with .iso8601 expects ISO8601 strings
+ */
+function normalizeConfig(config) {
+  if (!config) return config;
+
+  const normalized = { ...config };
+
+  // Convert createdAt if it's a number (Swift's default Date encoding)
+  if (typeof normalized.createdAt === 'number') {
+    // Swift's reference date is 2001-01-01, Unix epoch is 1970-01-01
+    // Difference is 978307200 seconds
+    const swiftReferenceOffset = 978307200;
+    const unixTimestamp = normalized.createdAt + swiftReferenceOffset;
+    normalized.createdAt = new Date(unixTimestamp * 1000).toISOString();
+  } else if (!normalized.createdAt) {
+    normalized.createdAt = new Date().toISOString();
+  }
+
+  // Ensure all required fields exist with correct types
+  normalized.id = normalized.id || `config-${Date.now()}`;
+  normalized.analysisType = normalized.analysisType || 'single';
+
+  // userFightRounds must be an integer (3 or 5)
+  if (typeof normalized.userFightRounds === 'string') {
+    normalized.userFightRounds = parseInt(normalized.userFightRounds, 10) || 3;
+  } else if (typeof normalized.userFightRounds !== 'number') {
+    normalized.userFightRounds = 3;
+  }
+
+  // userRole must be a valid string matching iOS enum
+  const validRoles = [
+    "I'm preparing to fight this opponent",
+    "Coach analyzing for student",
+    "General study / Analysis"
+  ];
+  if (!validRoles.includes(normalized.userRole)) {
+    normalized.userRole = "I'm preparing to fight this opponent";
+  }
+
+  // Optional fields - ensure they're null if not provided (not undefined)
+  normalized.sessionTitle = normalized.sessionTitle || null;
+  normalized.sessionType = normalized.sessionType || null;
+  normalized.sessionSubtitle = normalized.sessionSubtitle || null;
+  normalized.fighter1Name = normalized.fighter1Name || null;
+  normalized.fighter1Corner = normalized.fighter1Corner || null;
+  normalized.fighter1Description = normalized.fighter1Description || null;
+  normalized.fighter2Name = normalized.fighter2Name || null;
+  normalized.fighter2Corner = normalized.fighter2Corner || null;
+  normalized.fighter2Description = normalized.fighter2Description || null;
+  normalized.videoURL = normalized.videoURL || null;
+  normalized.videoDuration = normalized.videoDuration || null;
+  normalized.videoRounds = normalized.videoRounds || null;
+  normalized.videoFileSize = normalized.videoFileSize || null;
+
+  console.log('Normalized config:', JSON.stringify(normalized, null, 2));
+  return normalized;
+}
+
+/**
  * Validate and fix analysis data to match iOS AnalysisReport model exactly
  * Adds default values for missing optional fields, ensures correct types
  */
@@ -710,9 +771,285 @@ app.get('/', (req, res) => {
     endpoints: {
       analyze: 'POST /analyze',
       getAnalysis: 'GET /analysis/:id',
-      status: 'GET /api/analysis/status/:id'
+      status: 'GET /api/analysis/status/:id',
+      test: 'GET /test-report'
     }
   });
+});
+
+/**
+ * TEST ENDPOINT - Returns a hardcoded valid AnalysisReport
+ * Use this to verify iOS can parse the response format
+ * GET /test-report
+ */
+app.get('/test-report', (req, res) => {
+  const testReport = {
+    id: "test-123",
+    config: {
+      id: "config-123",
+      analysisType: "single",
+      sessionTitle: "Test Session",
+      sessionType: "Competition Fight",
+      sessionSubtitle: "Test Analysis",
+      fighter1Name: "Test Fighter",
+      fighter1Corner: "Red",
+      fighter1Description: "Test description",
+      fighter2Name: null,
+      fighter2Corner: null,
+      fighter2Description: null,
+      videoURL: null,
+      videoDuration: 300,
+      videoRounds: 3,
+      videoFileSize: 1000000,
+      userFightRounds: 3,
+      userRole: "I'm preparing to fight this opponent",
+      createdAt: new Date().toISOString()
+    },
+    createdAt: new Date().toISOString(),
+    completedAt: new Date().toISOString(),
+    status: "Completed",
+    executiveSummary: {
+      overallScore: 75,
+      summary: "Test analysis summary",
+      keyFindings: ["Finding 1", "Finding 2"],
+      recommendedApproach: "Test recommendation"
+    },
+    fightingStyleBreakdown: {
+      primaryStyle: "Boxer",
+      stance: "Orthodox",
+      secondarySkills: ["Wrestling"],
+      baseMartialArts: ["Boxing"],
+      styleDescription: "Test style description"
+    },
+    strikeAnalysis: {
+      accuracy: 70,
+      volume: 100,
+      powerScore: 75,
+      techniqueScore: 80,
+      breakdown: {
+        jabs: 30,
+        crosses: 20,
+        hooks: 15,
+        uppercuts: 5,
+        kicks: 20,
+        knees: 5,
+        elbows: 5
+      },
+      patterns: ["Pattern 1"],
+      recommendations: ["Recommendation 1"]
+    },
+    grapplingAnalysis: {
+      takedownAccuracy: 60,
+      takedownDefense: 70,
+      controlTime: 120,
+      submissionAttempts: 2,
+      techniques: ["Double leg"],
+      recommendations: ["Work on singles"]
+    },
+    defenseAnalysis: {
+      headMovement: 65,
+      footwork: 70,
+      blockingRate: 75,
+      counterStrikeRate: 60,
+      vulnerabilities: ["Low kick defense"],
+      improvements: ["Check kicks"]
+    },
+    cardioAnalysis: {
+      roundByRound: [
+        { roundNumber: 1, outputLevel: 90, staminaScore: 95, notes: "Strong start" },
+        { roundNumber: 2, outputLevel: 85, staminaScore: 88, notes: "Good pace" },
+        { roundNumber: 3, outputLevel: 80, staminaScore: 82, notes: "Maintained" }
+      ],
+      overallStamina: 85,
+      fatigueIndicators: ["Breathing heavy in R3"],
+      recommendations: ["More cardio"]
+    },
+    fightIQ: {
+      overallScore: 75,
+      decisionMaking: 78,
+      adaptability: 72,
+      strategyExecution: 75,
+      keyObservations: ["Good reads"],
+      improvements: ["Faster adjustments"]
+    },
+    strengthsWeaknesses: {
+      strengths: [
+        { title: "Power", description: "Good knockout power", score: 85, statistics: "70% KO rate" }
+      ],
+      weaknesses: [
+        { title: "Cardio", description: "Fades late", severity: 60, exploitablePattern: "Push pace", frequency: "Often", exploitationStrategy: "Pressure in R3" }
+      ],
+      opportunitiesToExploit: ["Low hands after combos"]
+    },
+    mistakePatterns: {
+      patterns: [
+        { pattern: "Drops hands", frequency: 5, severity: "high" }
+      ]
+    },
+    counterStrategy: {
+      bestCounter: { style: "Wrestler", reason: "Weak TDD" },
+      secondBestCounter: { style: "Pressure Fighter", reason: "Fades late" },
+      thirdBestCounter: { style: "Counter Striker", reason: "Predictable" },
+      techniquesToEmphasize: ["Leg kicks", "Wrestling"]
+    },
+    gamePlan: {
+      overallStrategy: "Pressure and wrestle",
+      roundByRound: [
+        { roundNumber: 1, objective: "Establish range", tactics: ["Jab"], keyFocus: "Distance" },
+        { roundNumber: 2, objective: "Increase pressure", tactics: ["Combos"], keyFocus: "Volume" },
+        { roundNumber: 3, objective: "Finish strong", tactics: ["Wrestle"], keyFocus: "Control" }
+      ],
+      roundGamePlans: [
+        {
+          roundNumber: 1,
+          title: "Feel Out",
+          planA: { name: "Strike", goal: "Land jabs", tactics: ["Jab"], successIndicators: ["Landing"], switchTrigger: "If not working" },
+          planB: { name: "Pressure", goal: "Push forward", tactics: ["Walk down"], successIndicators: ["Backing up"], switchTrigger: "If countered" },
+          planC: { name: "Wrestle", goal: "Take down", tactics: ["Double leg"], successIndicators: ["Control"], switchTrigger: null }
+        },
+        {
+          roundNumber: 2,
+          title: "Build Lead",
+          planA: { name: "Volume", goal: "Outwork", tactics: ["Combos"], successIndicators: ["Landing more"], switchTrigger: "If tired" },
+          planB: { name: "Counter", goal: "Pick shots", tactics: ["Wait and counter"], successIndicators: ["Clean shots"], switchTrigger: "If pressured" },
+          planC: { name: "Clinch", goal: "Control", tactics: ["Clinch work"], successIndicators: ["Knees landing"], switchTrigger: null }
+        },
+        {
+          roundNumber: 3,
+          title: "Close Strong",
+          planA: { name: "Finish", goal: "Get stoppage", tactics: ["Swarm"], successIndicators: ["Hurt opponent"], switchTrigger: "If behind" },
+          planB: { name: "Points", goal: "Win round", tactics: ["Safe shots"], successIndicators: ["Clear round"], switchTrigger: "If ahead" },
+          planC: { name: "Survive", goal: "Make it out", tactics: ["Clinch"], successIndicators: ["Not getting finished"], switchTrigger: null }
+        }
+      ],
+      keyTactics: ["Pressure", "Wrestling"],
+      thingsToAvoid: ["Standing in pocket"]
+    },
+    midFightAdjustments: {
+      adjustments: [
+        { ifCondition: "Getting countered", thenAction: "Add feints" },
+        { ifCondition: "Getting taken down", thenAction: "Stay off fence" }
+      ]
+    },
+    trainingRecommendations: {
+      priorityDrills: ["Takedown defense"],
+      sparringFocus: ["Pressure sparring"],
+      conditioning: ["5 round sparring"]
+    },
+    keyInsights: {
+      criticalObservations: ["Weak to pressure"],
+      winConditions: ["Wrestle to victory"],
+      riskFactors: ["Power in hands"],
+      finalRecommendation: "Stick to wrestling",
+      confidenceLevel: "High"
+    },
+    roundByRoundMetrics: {
+      rounds: [
+        {
+          roundNumber: 1,
+          outputLevel: 85,
+          notes: "Good round",
+          striking: {
+            strikesLanded: 20,
+            strikesAttempted: 35,
+            accuracy: 57,
+            significantStrikes: 15,
+            powerStrikes: 8,
+            headStrikes: 10,
+            bodyStrikes: 5,
+            legStrikes: 5,
+            knockdowns: 0
+          },
+          grappling: {
+            takedownsLanded: 1,
+            takedownsAttempted: 2,
+            takedownAccuracy: 50,
+            takedownsDefended: 1,
+            takedownDefenseRate: 100,
+            controlTimeSeconds: 45,
+            submissionAttempts: 0,
+            reversals: 0
+          },
+          defense: {
+            strikesAbsorbed: 15,
+            strikesAvoided: 60,
+            headMovementSuccess: 65,
+            takedownsDefended: 1,
+            escapes: 0
+          }
+        },
+        {
+          roundNumber: 2,
+          outputLevel: 80,
+          notes: "Solid round",
+          striking: {
+            strikesLanded: 18,
+            strikesAttempted: 30,
+            accuracy: 60,
+            significantStrikes: 12,
+            powerStrikes: 6,
+            headStrikes: 8,
+            bodyStrikes: 5,
+            legStrikes: 5,
+            knockdowns: 0
+          },
+          grappling: {
+            takedownsLanded: 2,
+            takedownsAttempted: 3,
+            takedownAccuracy: 67,
+            takedownsDefended: 0,
+            takedownDefenseRate: 0,
+            controlTimeSeconds: 60,
+            submissionAttempts: 1,
+            reversals: 0
+          },
+          defense: {
+            strikesAbsorbed: 12,
+            strikesAvoided: 65,
+            headMovementSuccess: 70,
+            takedownsDefended: 0,
+            escapes: 1
+          }
+        },
+        {
+          roundNumber: 3,
+          outputLevel: 75,
+          notes: "Closed well",
+          striking: {
+            strikesLanded: 15,
+            strikesAttempted: 28,
+            accuracy: 54,
+            significantStrikes: 10,
+            powerStrikes: 5,
+            headStrikes: 7,
+            bodyStrikes: 4,
+            legStrikes: 4,
+            knockdowns: 0
+          },
+          grappling: {
+            takedownsLanded: 1,
+            takedownsAttempted: 2,
+            takedownAccuracy: 50,
+            takedownsDefended: 1,
+            takedownDefenseRate: 100,
+            controlTimeSeconds: 30,
+            submissionAttempts: 0,
+            reversals: 1
+          },
+          defense: {
+            strikesAbsorbed: 18,
+            strikesAvoided: 55,
+            headMovementSuccess: 60,
+            takedownsDefended: 1,
+            escapes: 0
+          }
+        }
+      ]
+    }
+  };
+
+  console.log('Sending test report...');
+  res.json(testReport);
 });
 
 /**
@@ -810,9 +1147,12 @@ async function processAnalysis(analysisId) {
     analysisStore.set(analysisId, stored);
 
     // Build complete response matching iOS AnalysisReport model
+    // CRITICAL: Normalize config to ensure dates are ISO8601 strings
+    const normalizedConfig = normalizeConfig(config);
+
     const completeReport = {
       id: analysisId,
-      config: config,
+      config: normalizedConfig,
       createdAt: stored.createdAt,
       completedAt: new Date().toISOString(),
       status: 'Completed',
