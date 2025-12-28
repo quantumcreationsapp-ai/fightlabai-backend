@@ -93,6 +93,28 @@ function buildAppearanceString(appearance, description) {
 }
 
 /**
+ * Calculate maximum reasonable rounds from video duration
+ * Assumes ~5 min/round + 1 min rest = 6 min per full round
+ * Returns: { maxRounds, videoDurationMinutes, canDetermineRounds }
+ */
+function calculateVideoRoundConstraints(videoDurationSeconds) {
+  if (!videoDurationSeconds || videoDurationSeconds <= 0) {
+    return { maxRounds: 1, videoDurationMinutes: 0, canDetermineRounds: false };
+  }
+
+  const minutes = videoDurationSeconds / 60;
+  // Conservative: assume 4-5 min rounds (sparring/training can be shorter)
+  // A 7-minute video can have at most 1-2 rounds
+  const maxRounds = Math.max(1, Math.ceil(minutes / 4));
+
+  return {
+    maxRounds,
+    videoDurationMinutes: Math.round(minutes * 10) / 10, // Round to 1 decimal
+    canDetermineRounds: true
+  };
+}
+
+/**
  * Build prompt for BOTH FIGHTERS analysis mode
  * Returns a different JSON schema with fighter1Analysis and fighter2Analysis objects
  * Role-based output:
@@ -104,7 +126,12 @@ function buildBothFightersPrompt(config) {
   const fighter1Name = config.fighter1Name || 'Fighter 1';
   const fighter2Name = config.fighter2Name || 'Fighter 2';
   const userRounds = config.userFightRounds || 3;
-  const videoRounds = config.videoRounds || 3;
+
+  // Calculate reasonable round constraints from video duration
+  const videoConstraints = calculateVideoRoundConstraints(config.videoDuration);
+  // Clamp videoRounds to what's actually possible based on duration
+  const claimedRounds = config.videoRounds || 3;
+  const videoRounds = Math.min(claimedRounds, videoConstraints.maxRounds);
   const sessionType = config.sessionType || 'competition';
   const roleType = getUserRoleType(config.userRole);
 
@@ -171,19 +198,9 @@ function buildBothFightersPrompt(config) {
       "keyTactics": ["<DETAILED key tactic: explain WHAT, HOW, and WHY this works against ${fighterName}>", "<another detailed tactic with full context>", "<third detailed tactic>"],
       "thingsToAvoid": [
         {
-          "avoidance": "<WHAT to avoid - clear, direct statement. Example: 'Forcing repeated takedowns if early attempts are defended'>",
-          "reason": "<WHY it's dangerous - explain the consequence. Example: 'This will drain your energy and allow ${fighterName} to settle into their rhythm'>",
-          "alternative": "<What to do INSTEAD - actionable alternative. Example: 'If initial shots fail, switch to clinch pressure, wall work, or reset distance before re-engaging'>"
-        },
-        {
-          "avoidance": "<Another thing to avoid against ${fighterName}>",
-          "reason": "<Why this is dangerous based on observed video analysis>",
-          "alternative": "<Better tactical choice to make instead>"
-        },
-        {
-          "avoidance": "<Third avoidance item>",
-          "reason": "<Specific consequence explanation>",
-          "alternative": "<Recommended alternative action>"
+          "avoidance": "<SPECIFIC pattern from video - e.g., 'Entering on a straight line against his counter timing'>",
+          "reason": "<WHY dangerous with VIDEO EVIDENCE - e.g., 'When you enter straight, he times a pull-back counter and lands clean - visible multiple times in footage'>",
+          "alternative": "<SPECIFIC tactical fix - e.g., 'Enter behind feints, step off-line at 45 degrees, finish with level change if he leans back'>"
         }
       ]
     },
@@ -227,9 +244,32 @@ ${fighter2ShortsColor ? `🎯 SHORTS COLOR: ${fighter2ShortsColor.toUpperCase()}
 ${fighter2AppearanceStr ? `APPEARANCE: ${fighter2AppearanceStr}` : ''}
 ${fighter2Background ? `DECLARED BACKGROUND: ${fighter2Background}` : ''}
 
-VIDEO: ${videoRounds} rounds of ${sessionType}
+═══════════════════════════════════════════════════════════
+🚨🚨🚨 CRITICAL: VIDEO-GROUNDED ANALYSIS ONLY 🚨🚨🚨
+═══════════════════════════════════════════════════════════
+
+VIDEO DURATION: ${videoConstraints.videoDurationMinutes} minutes
+MAXIMUM POSSIBLE ROUNDS: ${videoRounds} (based on video length)
+SESSION TYPE: ${sessionType}
 USER'S UPCOMING FIGHT: ${userRounds} rounds
-ANALYSIS MODE: ${roleType.toUpperCase()} - ${roleContext}
+
+⚠️ ABSOLUTE RULES - VIOLATION = ANALYSIS FAILURE:
+
+1. **NO ROUND HALLUCINATIONS**: A ${videoConstraints.videoDurationMinutes}-minute video can have AT MOST ${videoRounds} round(s).
+   - NEVER claim "Round 3" events in a video under 10 minutes
+   - NEVER claim "Round 5" events in a video under 20 minutes
+   - If round breaks are not VISIBLE, use "throughout the video" or "in the footage"
+
+2. **VIDEO-ONLY OBSERVATIONS**: Only describe what you ACTUALLY SEE in these frames.
+   - Do NOT invent specific round-by-round events unless you can SEE round breaks
+   - Use language like: "Throughout the video...", "Across the footage...", "Observed patterns show..."
+   - If you cannot distinguish rounds, analyze as ONE continuous session
+
+3. **NO TEMPLATED CONTENT**: Every piece of analysis must be SPECIFIC to THIS video.
+   - Generic phrases like "This pattern was identified as a vulnerability" are FORBIDDEN
+   - Every reason/alternative/observation must reference SPECIFIC actions from the video
+
+ANALYSIS MODE: ${roleType.toUpperCase()}
 
 ═══════════════════════════════════════════════════════════
 CRITICAL: JSON OUTPUT FORMAT FOR BOTH FIGHTERS
@@ -534,19 +574,30 @@ FOR "overallStrategy":
 ❌ BAD: "Pressure and wrestle"
 ✅ GOOD: "Implement a pressure-based attack focusing on closing distance and initiating clinch exchanges. His poor takedown defense (visible when backing up) creates opportunities for reactive shots. On the feet, target the body to slow his movement and set up takedowns. If he starts finding range, immediately close distance - allowing him to establish his jab rhythm is dangerous."
 
-FOR "thingsToAvoid" (MUST have avoidance, reason, alternative):
+FOR "thingsToAvoid" - THIS IS CRITICAL, PAY ATTENTION:
+
+🚫 FORBIDDEN GENERIC PHRASES (NEVER USE THESE):
+- "This pattern was identified as a vulnerability based on video analysis"
+- "Adjust your approach based on opponent reaction"
+- "Reset when necessary"
+- "This is dangerous for you"
+- "Based on analysis"
+
+EVERY reason MUST reference something SPECIFIC you observed.
+EVERY alternative MUST be a CONCRETE tactical adjustment.
+
 ❌ BAD: { "avoidance": "Don't stand and trade", "reason": "Dangerous", "alternative": "Move" }
 ✅ GOOD: {
   "avoidance": "Prolonged exchanges at boxing range",
-  "reason": "He has faster hands and better timing on counters, which led to his knockdown in round 2. Every second spent trading increases your damage accumulation.",
+  "reason": "He has faster hands and better timing on counters - he landed clean hooks 4 times when opponent stayed in the pocket too long. Every second spent trading increases your damage accumulation.",
   "alternative": "Close the distance into clinch range or reset completely to outside range. Use feints to draw his counter, then immediately change levels for takedowns."
 }
 
-❌ BAD: { "avoidance": "Letting him get comfortable", "reason": "Bad for you", "alternative": "Pressure him" }
+❌ BAD: { "reason": "This pattern was identified as a vulnerability", "alternative": "Adjust your approach" }
 ✅ GOOD: {
-  "avoidance": "Allowing him to establish jab rhythm",
-  "reason": "Once he finds his range (as seen in the first two minutes), his counter-right becomes extremely dangerous. Constant pressure prevents this rhythm from developing.",
-  "alternative": "Stay in his face with constant forward pressure. When he tries to establish range, immediately close distance with level changes or clinch attempts."
+  "avoidance": "Backing up in a straight line under pressure",
+  "reason": "When pressured backward, his hands dropped and he ate the overhand right twice - once visibly hurting him",
+  "alternative": "Circle off to his power-hand side (his right), keeping your lead hand active. If you must retreat, take an angle and counter off the exit"
 }
 
 FOR "tactics" in roundGamePlans:
@@ -572,7 +623,13 @@ function buildClaudePrompt(config) {
 
   const fighterName = config.fighter1Name || 'the fighter';
   const userRounds = config.userFightRounds || 3;
-  const videoRounds = config.videoRounds || 3;
+
+  // Calculate reasonable round constraints from video duration
+  const videoConstraints = calculateVideoRoundConstraints(config.videoDuration);
+  // Clamp videoRounds to what's actually possible based on duration
+  const claimedRounds = config.videoRounds || 3;
+  const videoRounds = Math.min(claimedRounds, videoConstraints.maxRounds);
+
   const sessionType = config.sessionType || 'competition';
   const roleType = getUserRoleType(config.userRole);
 
@@ -656,19 +713,9 @@ ${fighter1Background ? `⚠️ User says "${fighterName}" has a ${fighter1Backgr
     "keyTactics": ["<string: key tactic WITH detailed explanation of how and when to use it>", "<string>", "<string>", "<string>"],
     "thingsToAvoid": [
       {
-        "avoidance": "<WHAT to avoid - clear, direct statement. Example: 'Trading in the pocket'>",
-        "reason": "<WHY it's dangerous - explain the consequence. Example: 'Opponent has faster hands and KO power - every exchange at this range risks getting hurt'>",
-        "alternative": "<What to do INSTEAD - actionable alternative. Example: 'Use footwork to maintain distance, only engage after feints or when opponent is resetting'>"
-      },
-      {
-        "avoidance": "<Another thing to avoid>",
-        "reason": "<Specific danger explanation based on video>",
-        "alternative": "<Better tactical choice>"
-      },
-      {
-        "avoidance": "<Third avoidance item>",
-        "reason": "<Consequence explanation>",
-        "alternative": "<Recommended alternative>"
+        "avoidance": "<SPECIFIC pattern from video - e.g., 'Entering on a straight line against his counter timing'>",
+        "reason": "<WHY dangerous with VIDEO EVIDENCE - e.g., 'When you enter straight, he times a pull-back counter and lands clean - visible multiple times in footage'>",
+        "alternative": "<SPECIFIC tactical fix - e.g., 'Enter behind feints, step off-line at 45 degrees, finish with level change if he leans back'>"
       }
     ]
   },
@@ -735,20 +782,37 @@ If ${fighterName} (wearing ${shortsColor || 'identified'} shorts) is getting tak
 - The OPPONENT is the wrestler in this case
 
 ═══════════════════════════════════════════════════════════
-VIDEO-ONLY ANALYSIS
+🚨🚨🚨 CRITICAL: VIDEO-GROUNDED ANALYSIS ONLY 🚨🚨🚨
 ═══════════════════════════════════════════════════════════
 
-**IMPORTANT**: Base your ENTIRE analysis ONLY on what you observe in these video frames.
-- Do NOT use any prior knowledge about the fighter's name or reputation
-- Do NOT assume anything based on who the fighter is
-- ONLY analyze what you can actually SEE the TARGET FIGHTER doing
-- If ${fighterName} primarily shoots takedowns and controls → they are a WRESTLER/GRAPPLER
-- If ${fighterName} primarily throws punches and kicks → they are a STRIKER
-- If ${fighterName} IS BEING taken down and controlled → they may have WEAK wrestling (check their offense)
-
-VIDEO: ${videoRounds} rounds of ${sessionType}
+VIDEO DURATION: ${videoConstraints.videoDurationMinutes} minutes
+MAXIMUM POSSIBLE ROUNDS: ${videoRounds} (based on video length)
+SESSION TYPE: ${sessionType}
 USER'S UPCOMING FIGHT: ${userRounds} rounds
 ANALYSIS MODE: ${roleContextLabel}
+
+⚠️ ABSOLUTE RULES - VIOLATION = ANALYSIS FAILURE:
+
+1. **NO ROUND HALLUCINATIONS**: A ${videoConstraints.videoDurationMinutes}-minute video can have AT MOST ${videoRounds} round(s).
+   - NEVER claim "Round 3" events in a video under 10 minutes
+   - NEVER claim "Round 5" events in a video under 20 minutes
+   - If round breaks are not VISIBLE, use "throughout the video" or "in the footage"
+
+2. **VIDEO-ONLY OBSERVATIONS**: Only describe what you ACTUALLY SEE in these frames.
+   - Do NOT invent specific round-by-round events unless you can SEE round breaks
+   - Use language like: "Throughout the video...", "Across the footage...", "Observed patterns show..."
+   - If you cannot distinguish rounds, analyze as ONE continuous session
+   - Do NOT use any prior knowledge about the fighter's name or reputation
+
+3. **NO TEMPLATED CONTENT**: Every piece of analysis must be SPECIFIC to THIS video.
+   - Generic phrases like "This pattern was identified as a vulnerability" are FORBIDDEN
+   - Every reason/alternative/observation must reference SPECIFIC actions from the video
+
+4. **FIGHTER IDENTIFICATION FIRST**:
+   - ONLY analyze what you can actually SEE the TARGET FIGHTER doing
+   - If ${fighterName} primarily shoots takedowns and controls → they are a WRESTLER/GRAPPLER
+   - If ${fighterName} primarily throws punches and kicks → they are a STRIKER
+   - If ${fighterName} IS BEING taken down and controlled → they may have WEAK wrestling (check their offense)
 
 ═══════════════════════════════════════════════════════════
 CRITICAL: JSON OUTPUT FORMAT
