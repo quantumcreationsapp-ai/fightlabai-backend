@@ -61,8 +61,10 @@ function buildClaudePrompt(config) {
   const videoRounds = config.videoRounds || 3;
   const sessionType = config.sessionType || 'competition';
 
-  // Build fighter context
+  // Build fighter context with STRONG visual emphasis
   let fighterContext = '';
+  const shortsColor = config.fighter1ShortsColor || config.fighter1Description?.match(/(\w+)\s*shorts/i)?.[1] || '';
+
   if (config.analysisType === 'both') {
     fighterContext = `
 ANALYZING: Both Fighters
@@ -72,8 +74,17 @@ FIGHTER 2: ${config.fighter2Name || 'Fighter 2'} (${config.fighter2Corner || 'Un
 ${config.fighter2Description ? `APPEARANCE: ${config.fighter2Description}` : ''}`;
   } else {
     fighterContext = `
-FIGHTER: ${fighterName} (${config.fighter1Corner || 'Unknown'} Corner)
-${config.fighter1Description ? `APPEARANCE: ${config.fighter1Description}` : ''}`;
+═══════════════════════════════════════════════════════════
+🎯 TARGET FIGHTER IDENTIFICATION (CRITICAL)
+═══════════════════════════════════════════════════════════
+NAME: ${fighterName}
+CORNER: ${config.fighter1Corner || 'Unknown'} Corner
+${shortsColor ? `SHORTS COLOR: ${shortsColor.toUpperCase()} - USE THIS TO IDENTIFY THE FIGHTER` : ''}
+${config.fighter1Description ? `PHYSICAL DESCRIPTION: ${config.fighter1Description}` : ''}
+
+⚠️ CRITICAL: You MUST identify "${fighterName}" using the visual markers above.
+⚠️ Look for the fighter wearing ${shortsColor ? shortsColor.toUpperCase() + ' shorts' : 'the described attire'} in the ${config.fighter1Corner || ''} corner.
+⚠️ The OTHER fighter in the video is the OPPONENT - do NOT analyze their skills as if they belong to ${fighterName}.`;
   }
 
   const roleContext = {
@@ -85,21 +96,52 @@ ${config.fighter1Description ? `APPEARANCE: ${config.fighter1Description}` : ''}
   return `You are an expert MMA fight analyst. Analyze the provided fight video frames and generate a comprehensive tactical analysis.
 
 ═══════════════════════════════════════════════════════════
-CRITICAL INSTRUCTION - VIDEO-ONLY ANALYSIS
+🚨 CRITICAL INSTRUCTION - FIGHTER IDENTIFICATION 🚨
+═══════════════════════════════════════════════════════════
+
+**STEP 1 - IDENTIFY THE TARGET FIGHTER FIRST:**
+Before analyzing ANYTHING, you MUST identify which person in the video is the target fighter.
+Use these visual identifiers in order of reliability:
+1. SHORTS COLOR - Most reliable identifier
+2. CORNER POSITION - Which corner they came from
+3. PHYSICAL DESCRIPTION - Body type, tattoos, appearance
+
+${fighterContext}
+
+═══════════════════════════════════════════════════════════
+🚨 CRITICAL - ANALYZE ONLY THE TARGET FIGHTER 🚨
+═══════════════════════════════════════════════════════════
+
+**WHAT TO ANALYZE (TARGET FIGHTER'S ACTIONS):**
+- Strikes that ${fighterName} THROWS (their offense)
+- Takedowns that ${fighterName} INITIATES (their wrestling offense)
+- Ground control when ${fighterName} IS ON TOP
+- Submissions that ${fighterName} ATTEMPTS
+- Movement and footwork of ${fighterName}
+- Defense when ${fighterName} blocks/evades (their defensive skills)
+
+**WHAT NOT TO ANALYZE AS THE TARGET'S SKILLS:**
+- Takedowns AGAINST ${fighterName} = OPPONENT's skill, NOT ${fighterName}'s
+- Ground control when ${fighterName} IS ON BOTTOM = OPPONENT's skill
+- Strikes that HIT ${fighterName} = OPPONENT's skill
+
+**EXAMPLE:**
+If ${fighterName} (wearing ${shortsColor || 'identified'} shorts) is getting taken down and controlled by the opponent:
+- This shows ${fighterName}'s WEAKNESS in takedown defense
+- This does NOT mean ${fighterName} is a "wrestler"
+- The OPPONENT is the wrestler in this case
+
+═══════════════════════════════════════════════════════════
+VIDEO-ONLY ANALYSIS
 ═══════════════════════════════════════════════════════════
 
 **IMPORTANT**: Base your ENTIRE analysis ONLY on what you observe in these video frames.
 - Do NOT use any prior knowledge about the fighter's name or reputation
 - Do NOT assume anything based on who the fighter is
-- ONLY analyze what you can actually SEE in the video frames
-- If the fighter primarily shoots takedowns and controls on the ground, they are a WRESTLER/GRAPPLER
-- If the fighter primarily throws punches and kicks standing, they are a STRIKER
-- Identify their PRIMARY style based on what they DO MOST in the video
-
-═══════════════════════════════════════════════════════════
-FIGHTER INFORMATION
-═══════════════════════════════════════════════════════════
-${fighterContext}
+- ONLY analyze what you can actually SEE the TARGET FIGHTER doing
+- If ${fighterName} primarily shoots takedowns and controls → they are a WRESTLER/GRAPPLER
+- If ${fighterName} primarily throws punches and kicks → they are a STRIKER
+- If ${fighterName} IS BEING taken down and controlled → they may have WEAK wrestling (check their offense)
 
 VIDEO: ${videoRounds} rounds of ${sessionType}
 USER'S UPCOMING FIGHT: ${userRounds} rounds
@@ -113,6 +155,12 @@ You MUST respond with ONLY valid JSON matching this EXACT structure.
 Use camelCase for all field names. All scores are 0-100 unless noted.
 
 {
+  "fighterIdentification": {
+    "confirmedName": "<string: the fighter name you are analyzing - should match '${fighterName}'>",
+    "visualIdentifiers": "<string: how you identified them - e.g., 'Fighter wearing yellow shorts in blue corner'>",
+    "confidenceLevel": "<string: 'High', 'Medium', or 'Low' - how confident you are this is the correct fighter>"
+  },
+
   "executiveSummary": {
     "overallScore": <number 0-100 - THIS IS THE THREAT LEVEL: How dangerous/skilled this fighter appears based on the video. 90+ = Elite level, 80-89 = Very skilled, 70-79 = Skilled, 60-69 = Average, Below 60 = Developing>,
     "summary": "<string: 2-3 sentence overview of what you OBSERVED in the video>",
@@ -360,11 +408,19 @@ REQUIREMENTS
 CRITICAL REMINDERS
 ═══════════════════════════════════════════════════════════
 
-- **primaryStyle** MUST reflect what you SEE them doing MOST in the video:
-  - If they shoot takedowns and wrestle → "Wrestler" or "Grappler"
-  - If they primarily box → "Boxer" or "Pressure Boxer"
-  - If they use clinch and knees → "Muay Thai Fighter"
-  - If they do submissions → "BJJ Specialist" or "Submission Grappler"
+🚨 FIGHTER IDENTIFICATION IS PARAMOUNT 🚨
+- FIRST confirm you've identified the correct fighter using visual markers
+- ${shortsColor ? `Look for ${shortsColor.toUpperCase()} shorts to identify ${fighterName}` : `Use the description to identify ${fighterName}`}
+- If you see wrestling/takedowns, ask: WHO is initiating them?
+- The person SHOOTING the takedown is the wrestler
+- The person BEING taken down may have WEAK takedown defense (not wrestler skills)
+
+- **primaryStyle** MUST reflect what ${fighterName} DOES (not what's done TO them):
+  - If ${fighterName} shoots takedowns and controls → "Wrestler" or "Grappler"
+  - If ${fighterName} primarily boxes and strikes → "Boxer" or "Striker"
+  - If ${fighterName} uses clinch and knees → "Muay Thai Fighter"
+  - If ${fighterName} attempts submissions → "BJJ Specialist" or "Submission Grappler"
+  - If ${fighterName} IS BEING wrestled/controlled → check their OFFENSE to determine style
 
 - **overallScore** is the THREAT LEVEL (how dangerous they appear):
   - 90-100: Elite, championship caliber performance in the video
@@ -374,6 +430,7 @@ CRITICAL REMINDERS
   - Below 60: Developing, many areas need improvement
 
 - Do NOT assume based on fighter names - analyze ONLY the video frames
+- Do NOT confuse the opponent's skills with ${fighterName}'s skills
 
 RESPOND WITH ONLY THE JSON OBJECT. NO MARKDOWN, NO EXPLANATION, JUST PURE JSON.`;
 }
@@ -555,6 +612,20 @@ function validateAndFixAnalysisData(data, config) {
 
   // Helper to ensure string
   const ensureString = (val, defaultVal = '') => typeof val === 'string' ? val : defaultVal;
+
+  // Validate fighterIdentification (new field for confirming correct fighter)
+  if (!data.fighterIdentification) {
+    data.fighterIdentification = {
+      confirmedName: config.fighter1Name || 'Unknown Fighter',
+      visualIdentifiers: 'Fighter identified based on provided description',
+      confidenceLevel: 'Medium'
+    };
+  } else {
+    data.fighterIdentification.confirmedName = ensureString(data.fighterIdentification.confirmedName, config.fighter1Name || 'Unknown');
+    data.fighterIdentification.visualIdentifiers = ensureString(data.fighterIdentification.visualIdentifiers, 'Based on description');
+    data.fighterIdentification.confidenceLevel = ensureString(data.fighterIdentification.confidenceLevel, 'Medium');
+  }
+  console.log(`Fighter identification: ${data.fighterIdentification.confirmedName} - ${data.fighterIdentification.visualIdentifiers} (Confidence: ${data.fighterIdentification.confidenceLevel})`);
 
   // Validate executiveSummary
   if (!data.executiveSummary) {
