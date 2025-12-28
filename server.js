@@ -125,7 +125,10 @@ Use camelCase for all field names. All scores are 0-100 unless noted.
     "stance": "<string: 'Orthodox' or 'Southpaw' - observe their lead hand/foot>",
     "secondarySkills": ["<string: secondary skill OBSERVED>", "<string>"],
     "baseMartialArts": ["<string: martial arts DEMONSTRATED in video - e.g., 'Wrestling', 'Boxing', 'BJJ', 'Muay Thai'>"],
-    "styleDescription": "<string: detailed description of what you OBSERVED them doing most in the video>"
+    "styleDescription": "<string: detailed description of what you OBSERVED them doing most in the video>",
+    "secondaryAttributes": ["<string: attribute like 'Elite Cardio', 'Knockout Power', 'Submission Threat' based on VIDEO>", "<string>", "<string>"],
+    "comparableFighters": ["<string: famous fighter with SIMILAR STYLE to what you observed - must match their actual fighting style>", "<string>", "<string>"],
+    "tacticalTendencies": ["<string: specific tactical pattern OBSERVED in video>", "<string>", "<string>", "<string>"]
   },
 
   "strikeAnalysis": {
@@ -575,8 +578,16 @@ function validateAndFixAnalysisData(data, config) {
       stance: 'Orthodox',
       secondarySkills: [],
       baseMartialArts: ['MMA'],
-      styleDescription: 'Fighter shows mixed martial arts abilities.'
+      styleDescription: 'Fighter shows mixed martial arts abilities.',
+      secondaryAttributes: ['Balanced Skillset', 'Adaptable', 'Well-Rounded'],
+      comparableFighters: [],
+      tacticalTendencies: []
     };
+  } else {
+    // Ensure new fields exist
+    data.fightingStyleBreakdown.secondaryAttributes = ensureArray(data.fightingStyleBreakdown.secondaryAttributes, ['Balanced Skillset']);
+    data.fightingStyleBreakdown.comparableFighters = ensureArray(data.fightingStyleBreakdown.comparableFighters, []);
+    data.fightingStyleBreakdown.tacticalTendencies = ensureArray(data.fightingStyleBreakdown.tacticalTendencies, []);
   }
 
   // Validate strikeAnalysis
