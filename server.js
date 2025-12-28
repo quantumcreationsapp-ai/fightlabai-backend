@@ -52,10 +52,250 @@ const analysisStore = new Map(); // Stores analysis results by ID
 // ============================================
 
 /**
+ * Helper function to build appearance string from structured data
+ */
+function buildAppearanceString(appearance, description) {
+  if (!appearance || Object.keys(appearance).length === 0) {
+    return description || '';
+  }
+  const parts = [];
+  if (appearance.shortsColor) parts.push(`${appearance.shortsColor} shorts`);
+  if (appearance.skinTone) parts.push(`${appearance.skinTone} skin tone`);
+  if (appearance.bodyBuild) parts.push(`${appearance.bodyBuild} build`);
+  if (appearance.relativeHeight) parts.push(appearance.relativeHeight);
+  if (appearance.distinguishingFeatures?.length > 0) {
+    parts.push(appearance.distinguishingFeatures.join(', '));
+  }
+  if (appearance.customDescription) parts.push(appearance.customDescription);
+  return parts.length > 0 ? parts.join(', ') : (description || '');
+}
+
+/**
+ * Build prompt for BOTH FIGHTERS analysis mode
+ * Returns a different JSON schema with fighter1Analysis and fighter2Analysis objects
+ */
+function buildBothFightersPrompt(config) {
+  const fighter1Name = config.fighter1Name || 'Fighter 1';
+  const fighter2Name = config.fighter2Name || 'Fighter 2';
+  const userRounds = config.userFightRounds || 3;
+  const videoRounds = config.videoRounds || 3;
+  const sessionType = config.sessionType || 'competition';
+
+  const fighter1Appearance = config.fighter1Appearance || {};
+  const fighter2Appearance = config.fighter2Appearance || {};
+
+  const fighter1ShortsColor = fighter1Appearance.shortsColor ||
+    config.fighter1Description?.match(/(\w+)\s*shorts/i)?.[1] || '';
+  const fighter2ShortsColor = fighter2Appearance.shortsColor ||
+    config.fighter2Description?.match(/(\w+)\s*shorts/i)?.[1] || '';
+
+  const fighter1AppearanceStr = buildAppearanceString(fighter1Appearance, config.fighter1Description);
+  const fighter2AppearanceStr = buildAppearanceString(fighter2Appearance, config.fighter2Description);
+
+  const fighter1Background = config.fighter1DeclaredBackground || null;
+  const fighter2Background = config.fighter2DeclaredBackground || null;
+
+  return `You are an expert MMA fight analyst. Analyze the provided fight video frames and generate a comprehensive tactical analysis for BOTH FIGHTERS.
+
+═══════════════════════════════════════════════════════════
+🚨 BOTH FIGHTERS ANALYSIS MODE 🚨
+═══════════════════════════════════════════════════════════
+
+You MUST provide SEPARATE, COMPLETE analyses for BOTH fighters in this video.
+
+FIGHTER 1: ${fighter1Name} (${config.fighter1Corner || 'Unknown'} Corner)
+${fighter1ShortsColor ? `🎯 SHORTS COLOR: ${fighter1ShortsColor.toUpperCase()} - PRIMARY IDENTIFIER` : ''}
+${fighter1AppearanceStr ? `APPEARANCE: ${fighter1AppearanceStr}` : ''}
+${fighter1Background ? `DECLARED BACKGROUND: ${fighter1Background}` : ''}
+
+FIGHTER 2: ${fighter2Name} (${config.fighter2Corner || 'Unknown'} Corner)
+${fighter2ShortsColor ? `🎯 SHORTS COLOR: ${fighter2ShortsColor.toUpperCase()} - PRIMARY IDENTIFIER` : ''}
+${fighter2AppearanceStr ? `APPEARANCE: ${fighter2AppearanceStr}` : ''}
+${fighter2Background ? `DECLARED BACKGROUND: ${fighter2Background}` : ''}
+
+VIDEO: ${videoRounds} rounds of ${sessionType}
+USER'S UPCOMING FIGHT: ${userRounds} rounds
+
+═══════════════════════════════════════════════════════════
+CRITICAL: JSON OUTPUT FORMAT FOR BOTH FIGHTERS
+═══════════════════════════════════════════════════════════
+
+You MUST respond with ONLY valid JSON matching this EXACT structure.
+Each fighter gets their OWN complete analysis with all sections.
+
+{
+  "fighter1Analysis": {
+    "fighterIdentification": {
+      "confirmedName": "${fighter1Name}",
+      "visualIdentifiers": "<how you identified ${fighter1Name}>",
+      "confidenceLevel": "<High/Medium/Low>",
+      "observedStyle": "<style observed for ${fighter1Name}>",
+      "declaredBackground": "${fighter1Background || 'Not specified'}",
+      "styleMismatch": <boolean>
+    },
+    "executiveSummary": {
+      "overallScore": <0-100>,
+      "summary": "<summary for ${fighter1Name}>",
+      "keyFindings": ["<finding>"],
+      "recommendedApproach": "<how to fight ${fighter1Name}>"
+    },
+    "fightingStyleBreakdown": {
+      "primaryStyle": "<${fighter1Name}'s primary style>",
+      "stance": "<Orthodox/Southpaw>",
+      "secondarySkills": ["<skill>"],
+      "baseMartialArts": ["<art>"],
+      "styleDescription": "<description>",
+      "secondaryAttributes": ["<attribute>"],
+      "comparableFighters": ["<fighter>"],
+      "tacticalTendencies": ["<tendency>"]
+    },
+    "strikeAnalysis": {
+      "accuracy": <0-100>, "volume": <int>, "powerScore": <0-100>, "techniqueScore": <0-100>,
+      "breakdown": { "jabs": <int>, "crosses": <int>, "hooks": <int>, "uppercuts": <int>, "kicks": <int>, "knees": <int>, "elbows": <int> },
+      "patterns": ["<pattern>"], "recommendations": ["<rec>"]
+    },
+    "grapplingAnalysis": {
+      "takedownAccuracy": <0-100>, "takedownDefense": <0-100>, "controlTime": <seconds>, "submissionAttempts": <int>,
+      "techniques": ["<technique>"], "recommendations": ["<rec>"]
+    },
+    "defenseAnalysis": {
+      "headMovement": <0-100>, "footwork": <0-100>, "blockingRate": <0-100>, "counterStrikeRate": <0-100>,
+      "vulnerabilities": ["<vulnerability>"], "improvements": ["<improvement>"]
+    },
+    "cardioAnalysis": {
+      "roundByRound": [{ "roundNumber": <int>, "outputLevel": <0-100>, "staminaScore": <0-100>, "notes": "<note>" }],
+      "overallStamina": <0-100>, "fatigueIndicators": ["<indicator>"], "recommendations": ["<rec>"]
+    },
+    "fightIQ": {
+      "overallScore": <0-100>, "decisionMaking": <0-100>, "adaptability": <0-100>, "strategyExecution": <0-100>,
+      "keyObservations": ["<observation>"], "improvements": ["<improvement>"]
+    },
+    "strengthsWeaknesses": {
+      "strengths": [{ "title": "<title>", "description": "<desc>", "score": <0-100>, "statistics": "<stat or null>" }],
+      "weaknesses": [{ "title": "<title>", "description": "<desc>", "severity": <0-100>, "exploitablePattern": "<pattern>", "frequency": "<freq or null>", "exploitationStrategy": "<strategy>" }],
+      "opportunitiesToExploit": ["<opportunity>"]
+    },
+    "mistakePatterns": {
+      "patterns": [{ "pattern": "<pattern>", "frequency": <int>, "severity": "<high/medium/low>" }]
+    },
+    "counterStrategy": {
+      "bestCounter": { "style": "<style>", "reason": "<reason>" },
+      "secondBestCounter": { "style": "<style>", "reason": "<reason>" },
+      "thirdBestCounter": { "style": "<style>", "reason": "<reason>" },
+      "techniquesToEmphasize": ["<technique>"]
+    },
+    "roundByRoundMetrics": {
+      "rounds": [{ "roundNumber": <int>, "outputLevel": <0-100>, "notes": "<note>",
+        "striking": { "strikesLanded": <int>, "strikesAttempted": <int>, "accuracy": <0-100>, "significantStrikes": <int>, "powerStrikes": <int>, "headStrikes": <int>, "bodyStrikes": <int>, "legStrikes": <int>, "knockdowns": <int> },
+        "grappling": { "takedownsLanded": <int>, "takedownsAttempted": <int>, "takedownAccuracy": <0-100>, "takedownsDefended": <int>, "takedownDefenseRate": <0-100>, "controlTimeSeconds": <int>, "submissionAttempts": <int>, "reversals": <int> },
+        "defense": { "strikesAbsorbed": <int>, "strikesAvoided": <0-100>, "headMovementSuccess": <0-100>, "takedownsDefended": <int>, "escapes": <int> }
+      }]
+    }
+  },
+
+  "fighter2Analysis": {
+    "fighterIdentification": {
+      "confirmedName": "${fighter2Name}",
+      "visualIdentifiers": "<how you identified ${fighter2Name}>",
+      "confidenceLevel": "<High/Medium/Low>",
+      "observedStyle": "<style observed for ${fighter2Name}>",
+      "declaredBackground": "${fighter2Background || 'Not specified'}",
+      "styleMismatch": <boolean>
+    },
+    "executiveSummary": {
+      "overallScore": <0-100>,
+      "summary": "<summary for ${fighter2Name}>",
+      "keyFindings": ["<finding>"],
+      "recommendedApproach": "<how to fight ${fighter2Name}>"
+    },
+    "fightingStyleBreakdown": {
+      "primaryStyle": "<${fighter2Name}'s primary style>",
+      "stance": "<Orthodox/Southpaw>",
+      "secondarySkills": ["<skill>"],
+      "baseMartialArts": ["<art>"],
+      "styleDescription": "<description>",
+      "secondaryAttributes": ["<attribute>"],
+      "comparableFighters": ["<fighter>"],
+      "tacticalTendencies": ["<tendency>"]
+    },
+    "strikeAnalysis": {
+      "accuracy": <0-100>, "volume": <int>, "powerScore": <0-100>, "techniqueScore": <0-100>,
+      "breakdown": { "jabs": <int>, "crosses": <int>, "hooks": <int>, "uppercuts": <int>, "kicks": <int>, "knees": <int>, "elbows": <int> },
+      "patterns": ["<pattern>"], "recommendations": ["<rec>"]
+    },
+    "grapplingAnalysis": {
+      "takedownAccuracy": <0-100>, "takedownDefense": <0-100>, "controlTime": <seconds>, "submissionAttempts": <int>,
+      "techniques": ["<technique>"], "recommendations": ["<rec>"]
+    },
+    "defenseAnalysis": {
+      "headMovement": <0-100>, "footwork": <0-100>, "blockingRate": <0-100>, "counterStrikeRate": <0-100>,
+      "vulnerabilities": ["<vulnerability>"], "improvements": ["<improvement>"]
+    },
+    "cardioAnalysis": {
+      "roundByRound": [{ "roundNumber": <int>, "outputLevel": <0-100>, "staminaScore": <0-100>, "notes": "<note>" }],
+      "overallStamina": <0-100>, "fatigueIndicators": ["<indicator>"], "recommendations": ["<rec>"]
+    },
+    "fightIQ": {
+      "overallScore": <0-100>, "decisionMaking": <0-100>, "adaptability": <0-100>, "strategyExecution": <0-100>,
+      "keyObservations": ["<observation>"], "improvements": ["<improvement>"]
+    },
+    "strengthsWeaknesses": {
+      "strengths": [{ "title": "<title>", "description": "<desc>", "score": <0-100>, "statistics": "<stat or null>" }],
+      "weaknesses": [{ "title": "<title>", "description": "<desc>", "severity": <0-100>, "exploitablePattern": "<pattern>", "frequency": "<freq or null>", "exploitationStrategy": "<strategy>" }],
+      "opportunitiesToExploit": ["<opportunity>"]
+    },
+    "mistakePatterns": {
+      "patterns": [{ "pattern": "<pattern>", "frequency": <int>, "severity": "<high/medium/low>" }]
+    },
+    "counterStrategy": {
+      "bestCounter": { "style": "<style>", "reason": "<reason>" },
+      "secondBestCounter": { "style": "<style>", "reason": "<reason>" },
+      "thirdBestCounter": { "style": "<style>", "reason": "<reason>" },
+      "techniquesToEmphasize": ["<technique>"]
+    },
+    "roundByRoundMetrics": {
+      "rounds": [{ "roundNumber": <int>, "outputLevel": <0-100>, "notes": "<note>",
+        "striking": { "strikesLanded": <int>, "strikesAttempted": <int>, "accuracy": <0-100>, "significantStrikes": <int>, "powerStrikes": <int>, "headStrikes": <int>, "bodyStrikes": <int>, "legStrikes": <int>, "knockdowns": <int> },
+        "grappling": { "takedownsLanded": <int>, "takedownsAttempted": <int>, "takedownAccuracy": <0-100>, "takedownsDefended": <int>, "takedownDefenseRate": <0-100>, "controlTimeSeconds": <int>, "submissionAttempts": <int>, "reversals": <int> },
+        "defense": { "strikesAbsorbed": <int>, "strikesAvoided": <0-100>, "headMovementSuccess": <0-100>, "takedownsDefended": <int>, "escapes": <int> }
+      }]
+    }
+  },
+
+  "matchupAnalysis": {
+    "summary": "<overall matchup analysis between the two fighters>",
+    "keyMatchups": ["<key matchup point>"],
+    "predictedWinner": "<${fighter1Name} or ${fighter2Name}>",
+    "winProbability": { "fighter1": <0-100>, "fighter2": <0-100> },
+    "likelyOutcome": "<how the fight will likely play out>"
+  }
+}
+
+═══════════════════════════════════════════════════════════
+REQUIREMENTS FOR BOTH FIGHTERS MODE
+═══════════════════════════════════════════════════════════
+
+1. Provide COMPLETE analysis for BOTH fighters - not just one!
+2. Each fighter gets their own executiveSummary, strengths, weaknesses, etc.
+3. The counterStrategy for each fighter describes how to BEAT that fighter
+4. roundByRoundMetrics should have ${videoRounds} entries for each fighter
+5. cardioAnalysis.roundByRound should have ${videoRounds} entries for each fighter
+6. Be objective - analyze each fighter independently based on what you observe
+7. The matchupAnalysis section compares the two fighters directly
+
+RESPOND WITH ONLY THE JSON OBJECT. NO MARKDOWN, NO EXPLANATION, JUST PURE JSON.`;
+}
+
+/**
  * Build the Claude prompt with EXACT JSON schema matching iOS models
  * This is CRITICAL - the JSON structure must match AnalysisReport.swift exactly
  */
 function buildClaudePrompt(config) {
+  // For "both" mode, use the special prompt
+  if (config.analysisType === 'both') {
+    return buildBothFightersPrompt(config);
+  }
+
   const fighterName = config.fighter1Name || 'the fighter';
   const userRounds = config.userFightRounds || 3;
   const videoRounds = config.videoRounds || 3;
@@ -63,56 +303,18 @@ function buildClaudePrompt(config) {
 
   // Extract appearance data (new structured format or legacy string)
   const fighter1Appearance = config.fighter1Appearance || {};
-  const fighter2Appearance = config.fighter2Appearance || {};
 
   // Get shorts color - prefer structured, fall back to legacy description parsing
   const shortsColor = fighter1Appearance.shortsColor ||
     config.fighter1Description?.match(/(\w+)\s*shorts/i)?.[1] || '';
-  const fighter2ShortsColor = fighter2Appearance.shortsColor ||
-    config.fighter2Description?.match(/(\w+)\s*shorts/i)?.[1] || '';
-
-  // Build appearance description from structured data
-  function buildAppearanceString(appearance, description) {
-    if (!appearance || Object.keys(appearance).length === 0) {
-      return description || '';
-    }
-    const parts = [];
-    if (appearance.shortsColor) parts.push(`${appearance.shortsColor} shorts`);
-    if (appearance.skinTone) parts.push(`${appearance.skinTone} skin tone`);
-    if (appearance.bodyBuild) parts.push(`${appearance.bodyBuild} build`);
-    if (appearance.relativeHeight) parts.push(appearance.relativeHeight);
-    if (appearance.distinguishingFeatures?.length > 0) {
-      parts.push(appearance.distinguishingFeatures.join(', '));
-    }
-    if (appearance.customDescription) parts.push(appearance.customDescription);
-    return parts.length > 0 ? parts.join(', ') : (description || '');
-  }
 
   const fighter1AppearanceStr = buildAppearanceString(fighter1Appearance, config.fighter1Description);
-  const fighter2AppearanceStr = buildAppearanceString(fighter2Appearance, config.fighter2Description);
 
   // Get declared backgrounds
   const fighter1Background = config.fighter1DeclaredBackground || null;
-  const fighter2Background = config.fighter2DeclaredBackground || null;
 
   // Build fighter context with STRONG visual emphasis
-  let fighterContext = '';
-
-  if (config.analysisType === 'both') {
-    fighterContext = `
-ANALYZING: Both Fighters
-
-FIGHTER A: ${config.fighter1Name || 'Fighter 1'} (${config.fighter1Corner || 'Unknown'} Corner)
-${shortsColor ? `🎯 SHORTS COLOR: ${shortsColor.toUpperCase()} - PRIMARY IDENTIFIER` : ''}
-${fighter1AppearanceStr ? `APPEARANCE: ${fighter1AppearanceStr}` : ''}
-${fighter1Background ? `DECLARED BACKGROUND: ${fighter1Background} (user-provided, may differ from observed style)` : ''}
-
-FIGHTER B: ${config.fighter2Name || 'Fighter 2'} (${config.fighter2Corner || 'Unknown'} Corner)
-${fighter2ShortsColor ? `🎯 SHORTS COLOR: ${fighter2ShortsColor.toUpperCase()} - PRIMARY IDENTIFIER` : ''}
-${fighter2AppearanceStr ? `APPEARANCE: ${fighter2AppearanceStr}` : ''}
-${fighter2Background ? `DECLARED BACKGROUND: ${fighter2Background} (user-provided, may differ from observed style)` : ''}`;
-  } else {
-    fighterContext = `
+  let fighterContext = `
 ═══════════════════════════════════════════════════════════
 🎯 TARGET FIGHTER IDENTIFICATION (CRITICAL)
 ═══════════════════════════════════════════════════════════
@@ -660,6 +862,158 @@ function normalizeConfig(config) {
 }
 
 /**
+ * Validate a single fighter's analysis data (used for both fighters mode)
+ */
+function validateSingleFighterAnalysis(data, fighterName, videoRounds) {
+  const ensureArray = (val, defaultArr = []) => Array.isArray(val) ? val : defaultArr;
+  const ensureNumber = (val, defaultVal = 0) => {
+    if (typeof val === 'number') return val;
+    const parsed = parseFloat(val);
+    return isNaN(parsed) ? defaultVal : parsed;
+  };
+  const ensureString = (val, defaultVal = '') => typeof val === 'string' ? val : defaultVal;
+
+  // Fighter Identification
+  if (!data.fighterIdentification) {
+    data.fighterIdentification = {
+      confirmedName: fighterName,
+      visualIdentifiers: 'Identified based on description',
+      confidenceLevel: 'Medium',
+      observedStyle: 'Mixed',
+      declaredBackground: 'Not specified',
+      styleMismatch: false
+    };
+  }
+
+  // Executive Summary
+  if (!data.executiveSummary) {
+    data.executiveSummary = {
+      overallScore: 70,
+      summary: `Analysis of ${fighterName}`,
+      keyFindings: ['Analysis data available'],
+      recommendedApproach: 'See detailed analysis'
+    };
+  }
+
+  // Fighting Style Breakdown
+  if (!data.fightingStyleBreakdown) {
+    data.fightingStyleBreakdown = {
+      primaryStyle: 'Mixed Martial Artist',
+      stance: 'Orthodox',
+      secondarySkills: [],
+      baseMartialArts: ['MMA'],
+      styleDescription: `${fighterName} shows mixed martial arts abilities.`,
+      secondaryAttributes: [],
+      comparableFighters: [],
+      tacticalTendencies: []
+    };
+  }
+
+  // Strike Analysis
+  if (!data.strikeAnalysis) {
+    data.strikeAnalysis = {
+      accuracy: 50, volume: 0, powerScore: 50, techniqueScore: 50,
+      breakdown: { jabs: 0, crosses: 0, hooks: 0, uppercuts: 0, kicks: 0, knees: 0, elbows: 0 },
+      patterns: [], recommendations: []
+    };
+  }
+
+  // Grappling Analysis
+  if (!data.grapplingAnalysis) {
+    data.grapplingAnalysis = {
+      takedownAccuracy: 50, takedownDefense: 50, controlTime: 0, submissionAttempts: 0,
+      techniques: [], recommendations: []
+    };
+  }
+
+  // Defense Analysis
+  if (!data.defenseAnalysis) {
+    data.defenseAnalysis = {
+      headMovement: 50, footwork: 50, blockingRate: 50, counterStrikeRate: 50,
+      vulnerabilities: [], improvements: []
+    };
+  }
+
+  // Cardio Analysis
+  if (!data.cardioAnalysis) {
+    data.cardioAnalysis = {
+      roundByRound: [],
+      overallStamina: 70,
+      fatigueIndicators: [],
+      recommendations: []
+    };
+  }
+  if (!data.cardioAnalysis.roundByRound || data.cardioAnalysis.roundByRound.length === 0) {
+    data.cardioAnalysis.roundByRound = [];
+    for (let i = 1; i <= videoRounds; i++) {
+      data.cardioAnalysis.roundByRound.push({
+        roundNumber: i, outputLevel: 80, staminaScore: 80, notes: `Round ${i}`
+      });
+    }
+  }
+
+  // Fight IQ
+  if (!data.fightIQ) {
+    data.fightIQ = {
+      overallScore: 70, decisionMaking: 70, adaptability: 70, strategyExecution: 70,
+      keyObservations: [], improvements: []
+    };
+  }
+
+  // Strengths and Weaknesses
+  if (!data.strengthsWeaknesses) {
+    data.strengthsWeaknesses = {
+      strengths: [{ title: 'To be analyzed', description: 'See details', score: 70, statistics: null }],
+      weaknesses: [{ title: 'To be analyzed', description: 'See details', severity: 50, exploitablePattern: '', frequency: null, exploitationStrategy: '' }],
+      opportunitiesToExploit: []
+    };
+  }
+
+  // Mistake Patterns
+  if (!data.mistakePatterns) {
+    data.mistakePatterns = { patterns: [] };
+  }
+
+  // Counter Strategy
+  if (!data.counterStrategy) {
+    data.counterStrategy = {
+      bestCounter: { style: 'Balanced approach', reason: 'Adapt based on opponent' },
+      secondBestCounter: { style: 'Pressure fighting', reason: 'Test their cardio' },
+      thirdBestCounter: { style: 'Counter striking', reason: 'Exploit openings' },
+      techniquesToEmphasize: []
+    };
+  }
+
+  // Round by Round Metrics
+  if (!data.roundByRoundMetrics) {
+    data.roundByRoundMetrics = { rounds: [] };
+  }
+  if (!data.roundByRoundMetrics.rounds || data.roundByRoundMetrics.rounds.length < videoRounds) {
+    data.roundByRoundMetrics.rounds = [];
+    for (let i = 1; i <= videoRounds; i++) {
+      data.roundByRoundMetrics.rounds.push({
+        roundNumber: i,
+        outputLevel: 75,
+        notes: `Round ${i}`,
+        striking: {
+          strikesLanded: 10, strikesAttempted: 20, accuracy: 50,
+          significantStrikes: 5, powerStrikes: 3, headStrikes: 4, bodyStrikes: 3, legStrikes: 3, knockdowns: 0
+        },
+        grappling: {
+          takedownsLanded: 0, takedownsAttempted: 1, takedownAccuracy: 0,
+          takedownsDefended: 0, takedownDefenseRate: 50, controlTimeSeconds: 0, submissionAttempts: 0, reversals: 0
+        },
+        defense: {
+          strikesAbsorbed: 10, strikesAvoided: 50, headMovementSuccess: 50, takedownsDefended: 0, escapes: 0
+        }
+      });
+    }
+  }
+
+  return data;
+}
+
+/**
  * Validate and fix analysis data to match iOS AnalysisReport model exactly
  * Adds default values for missing optional fields, ensures correct types
  */
@@ -679,6 +1033,39 @@ function validateAndFixAnalysisData(data, config) {
 
   // Helper to ensure string
   const ensureString = (val, defaultVal = '') => typeof val === 'string' ? val : defaultVal;
+
+  // HANDLE BOTH FIGHTERS MODE
+  if (config.analysisType === 'both') {
+    console.log('Processing BOTH FIGHTERS mode data...');
+
+    // Ensure fighter1Analysis exists
+    if (!data.fighter1Analysis) {
+      data.fighter1Analysis = {};
+    }
+    // Ensure fighter2Analysis exists
+    if (!data.fighter2Analysis) {
+      data.fighter2Analysis = {};
+    }
+    // Ensure matchupAnalysis exists
+    if (!data.matchupAnalysis) {
+      data.matchupAnalysis = {
+        summary: 'Matchup analysis not available',
+        keyMatchups: [],
+        predictedWinner: 'Unknown',
+        winProbability: { fighter1: 50, fighter2: 50 },
+        likelyOutcome: 'Close competitive fight'
+      };
+    }
+
+    // Validate fighter1Analysis
+    data.fighter1Analysis = validateSingleFighterAnalysis(data.fighter1Analysis, config.fighter1Name || 'Fighter 1', videoRounds);
+
+    // Validate fighter2Analysis
+    data.fighter2Analysis = validateSingleFighterAnalysis(data.fighter2Analysis, config.fighter2Name || 'Fighter 2', videoRounds);
+
+    console.log('Both fighters validation complete.');
+    return data;
+  }
 
   // Validate fighterIdentification (new field for confirming correct fighter)
   if (!data.fighterIdentification) {
