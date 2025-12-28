@@ -169,7 +169,23 @@ function buildBothFightersPrompt(config) {
         }
       }],
       "keyTactics": ["<DETAILED key tactic: explain WHAT, HOW, and WHY this works against ${fighterName}>", "<another detailed tactic with full context>", "<third detailed tactic>"],
-      "thingsToAvoid": ["<Thing to avoid + WHY: Explain the specific action to avoid and the CONSEQUENCE if ${perspective.subject} does it. Example: 'Avoid trading hooks in the pocket - ${fighterName} has faster hand speed and will land first, leading to accumulative damage'>", "<Another thing to avoid with clear explanation of WHY it's dangerous against ${fighterName}>", "<Third thing to avoid with consequence explanation>"]
+      "thingsToAvoid": [
+        {
+          "avoidance": "<WHAT to avoid - clear, direct statement. Example: 'Forcing repeated takedowns if early attempts are defended'>",
+          "reason": "<WHY it's dangerous - explain the consequence. Example: 'This will drain your energy and allow ${fighterName} to settle into their rhythm'>",
+          "alternative": "<What to do INSTEAD - actionable alternative. Example: 'If initial shots fail, switch to clinch pressure, wall work, or reset distance before re-engaging'>"
+        },
+        {
+          "avoidance": "<Another thing to avoid against ${fighterName}>",
+          "reason": "<Why this is dangerous based on observed video analysis>",
+          "alternative": "<Better tactical choice to make instead>"
+        },
+        {
+          "avoidance": "<Third avoidance item>",
+          "reason": "<Specific consequence explanation>",
+          "alternative": "<Recommended alternative action>"
+        }
+      ]
     },
     "midFightAdjustments": {
       "adjustments": [{ "ifCondition": "<if ${perspective.subject} faces this situation vs ${fighterName}>", "thenAction": "<what ${perspective.action} do>" }]
@@ -365,10 +381,24 @@ Each fighter gets their OWN complete analysis with all sections.
     "summary": "<DETAILED 3-4 sentence matchup analysis based on WHAT YOU OBSERVED in the video. Reference specific exchanges, moments, and how each fighter performed AGAINST EACH OTHER.>",
     "keyMatchups": ["<key matchup point observed in the video>", "<another observed interaction>", "<third key observation>", "<fourth observation>"],
     "criticalMoments": ["<IMPORTANT: List any knockdowns, near-finishes, dominant positions, or fight-changing moments you observed - e.g., 'Fighter A knocked down Fighter B in round 2'>"],
-    "predictedWinner": "<${fighter1Name} or ${fighter2Name} - MUST be based on WHO PERFORMED BETTER IN THE VIDEO, not theoretical matchup advantages>",
-    "winProbability": { "fighter1": <0-100 based on OBSERVED performance>, "fighter2": <0-100 based on OBSERVED performance> },
-    "likelyOutcome": "<Based on what you SAW in the video, how would this fight likely end? Reference actual observed performance.>",
-    "predictionReasoning": "<DETAILED 2-3 sentence explanation of WHY you predicted this winner. Must reference specific observed moments, knockdowns, control time, or damage dealt in the video.>"
+    "opponentPreparation": {
+      "keyDangers": [
+        "<SPECIFIC danger this opponent presents based on video - e.g., 'Explosive overhand right that he loads up when pressured backwards'>",
+        "<Another danger observed - e.g., 'Quick level changes into double-leg takedowns from boxing range'>",
+        "<Third danger - e.g., 'Clinch knees when backed against the cage'>"
+      ],
+      "tacticalAdjustments": [
+        "<SPECIFIC adjustment needed for this opponent - e.g., 'Maintain longer range than usual to avoid his inside boxing'>",
+        "<Another tactical adjustment - e.g., 'Circle away from his power hand rather than backing up straight'>",
+        "<Third adjustment - e.g., 'Keep hands high when pressing forward - he counters with hooks'>"
+      ],
+      "preparationGuidance": [
+        "<HOW to prepare for this specific opponent - e.g., 'Drill sprawl-to-guillotine sequences - he leaves his neck exposed on shots'>",
+        "<Another preparation tip - e.g., 'Spar against aggressive pressure fighters to simulate his style'>",
+        "<Third preparation guidance - e.g., 'Work on maintaining distance and using jabs to keep him at bay'>"
+      ],
+      "similarStyleGuidance": "<OPTIONAL - Reference to similar fighters or styles - e.g., 'Similar pressure style to early Diego Sanchez - constant forward movement with wide hooks. Study how fighters with good footwork neutralized that approach.'>"
+    }
   }
 }
 
@@ -430,50 +460,51 @@ ${roleType !== 'study' ? `- Each fighter gets their OWN gamePlan, adjustments, t
 - Training recommendations must be specific to beating THAT fighter's style` : `- Focus on pure analysis without actionable coaching recommendations`}
 
 ═══════════════════════════════════════════════════════════
-🚨🚨🚨 ABSOLUTE RULE: VIDEO-FIRST MATCHUP ANALYSIS 🚨🚨🚨
+🚨🚨🚨 ABSOLUTE RULE: VIDEO-FIRST OPPONENT PREPARATION 🚨🚨🚨
 ═══════════════════════════════════════════════════════════
 
 ⚠️ THIS IS THE MOST IMPORTANT SECTION - GET THIS WRONG AND THE ENTIRE ANALYSIS FAILS ⚠️
 
 The matchupAnalysis MUST reflect WHAT ACTUALLY HAPPENED IN THE VIDEO.
-DO NOT use theoretical matchup advantages. DO NOT ignore fight-ending events.
+Focus on actionable preparation guidance, NOT predictions.
 
 ═══════════════════════════════════════════════════════════
-🥊 KNOCKOUT/TKO/FINISH RULE (MANDATORY) 🥊
+🎯 OPPONENT PREPARATION REQUIREMENTS (CRITICAL) 🎯
 ═══════════════════════════════════════════════════════════
 
-IF YOU SEE A KNOCKOUT, TKO, OR FIGHT-ENDING MOMENT:
-→ The fighter who SCORED THE FINISH is the predicted winner (100% of the time)
-→ Give them 85-95% win probability
-→ The "criticalMoments" MUST include the finish
-→ The "predictionReasoning" MUST explain the finish
+The opponentPreparation section is designed to help users PREPARE for opponents like this.
+This is NOT a prediction tool - it's a PREPARATION tool.
 
-This is NON-NEGOTIABLE. A knockout = that fighter wins. Period.
+FOR "keyDangers" - What specific threats does this opponent present?
+- Reference actual moments from the video where these dangers manifested
+- Be specific: "Explosive overhand right" not just "good hands"
+- Include timing/setup patterns you observed
 
-❌ ABSOLUTELY WRONG:
-Video shows Fighter A knocking out Fighter B → Predicted Winner: Fighter B
-(THIS DESTROYS USER TRUST - NEVER DO THIS)
+FOR "tacticalAdjustments" - What should the user change when facing this style?
+- Specific range adjustments, stance changes, tactical shifts
+- Based on weaknesses you observed in the video
+- Actionable advice, not generic statements
 
-✅ CORRECT:
-Video shows Fighter A knocking out Fighter B → Predicted Winner: Fighter A (95%)
-"predictionReasoning": "Fighter A scored a devastating knockout, ending the fight decisively."
+FOR "preparationGuidance" - How should the user train for this opponent?
+- Specific drills that address the dangers identified
+- Sparring recommendations to simulate this style
+- Training focus areas based on video analysis
+
+FOR "similarStyleGuidance" - Reference point for preparation
+- Name similar fighters or styles to study
+- Explain what makes them similar
+- Optional but valuable for context
 
 ═══════════════════════════════════════════════════════════
-📊 PREDICTION HIERARCHY (IN ORDER OF IMPORTANCE)
+📋 CRITICAL MOMENTS RULES 📋
 ═══════════════════════════════════════════════════════════
 
-1. KNOCKOUT/TKO/SUBMISSION → Fighter who finished wins (85-95%)
-2. KNOCKDOWNS → Fighter with more knockdowns heavily favored (70-85%)
-3. NEAR-FINISHES → Fighter who had opponent in serious trouble (65-75%)
-4. DOMINANT CONTROL → Fighter who controlled most of the fight (55-65%)
-5. VOLUME/ACTIVITY → Only use if no clear moments above (50-60%)
+The "criticalMoments" array must capture fight-defining events:
+- Knockdowns, near-finishes, dominant positions
+- Moments that reveal key vulnerabilities
+- Turning points that show what works against this opponent
 
-NEVER let #5 override #1-4. A knockdown matters more than "landing consistently."
-
-❌ WRONG: "Sterling landed more consistently, so Sterling wins" (ignoring Sean's knockout)
-✅ RIGHT: "Sean knocked out Sterling, making him the clear winner despite Sterling's earlier volume"
-
-Example: If ${fighter1Name} knocked down/knocked out ${fighter2Name}, then ${fighter1Name} is the predicted winner with 75-95% probability. This is MANDATORY regardless of what else happened in the fight.
+Example: If ${fighter1Name} knocked down ${fighter2Name}, this MUST be in criticalMoments as it reveals a key danger and opportunity.
 
 ═══════════════════════════════════════════════════════════
 🏆 PREMIUM QUALITY REQUIREMENT - $19.99 ANALYSIS 🏆
@@ -503,12 +534,20 @@ FOR "overallStrategy":
 ❌ BAD: "Pressure and wrestle"
 ✅ GOOD: "Implement a pressure-based attack focusing on closing distance and initiating clinch exchanges. His poor takedown defense (visible when backing up) creates opportunities for reactive shots. On the feet, target the body to slow his movement and set up takedowns. If he starts finding range, immediately close distance - allowing him to establish his jab rhythm is dangerous."
 
-FOR "thingsToAvoid" (MUST explain WHY):
-❌ BAD: "Don't stand and trade"
-✅ GOOD: "Avoid prolonged exchanges at boxing range - he has faster hands and better timing on counters, which led to his knockdown in round 2. Every second spent trading increases your damage accumulation."
+FOR "thingsToAvoid" (MUST have avoidance, reason, alternative):
+❌ BAD: { "avoidance": "Don't stand and trade", "reason": "Dangerous", "alternative": "Move" }
+✅ GOOD: {
+  "avoidance": "Prolonged exchanges at boxing range",
+  "reason": "He has faster hands and better timing on counters, which led to his knockdown in round 2. Every second spent trading increases your damage accumulation.",
+  "alternative": "Close the distance into clinch range or reset completely to outside range. Use feints to draw his counter, then immediately change levels for takedowns."
+}
 
-❌ BAD: "Don't let him get comfortable"
-✅ GOOD: "Avoid allowing him to establish jab rhythm - once he finds his range (as seen in the first two minutes), his counter-right becomes extremely dangerous. Constant pressure prevents this rhythm from developing."
+❌ BAD: { "avoidance": "Letting him get comfortable", "reason": "Bad for you", "alternative": "Pressure him" }
+✅ GOOD: {
+  "avoidance": "Allowing him to establish jab rhythm",
+  "reason": "Once he finds his range (as seen in the first two minutes), his counter-right becomes extremely dangerous. Constant pressure prevents this rhythm from developing.",
+  "alternative": "Stay in his face with constant forward pressure. When he tries to establish range, immediately close distance with level changes or clinch attempts."
+}
 
 FOR "tactics" in roundGamePlans:
 ❌ BAD: "Use leg kicks"
@@ -615,7 +654,23 @@ ${fighter1Background ? `⚠️ User says "${fighterName}" has a ${fighter1Backgr
       }
     ],
     "keyTactics": ["<string: key tactic WITH detailed explanation of how and when to use it>", "<string>", "<string>", "<string>"],
-    "thingsToAvoid": ["<string: what NOT to do AND WHY - explain the danger/consequence - e.g., 'Avoid trading in the pocket because opponent has faster hands and KO power'>", "<string: another thing to avoid with reasoning>", "<string>", "<string>"]
+    "thingsToAvoid": [
+      {
+        "avoidance": "<WHAT to avoid - clear, direct statement. Example: 'Trading in the pocket'>",
+        "reason": "<WHY it's dangerous - explain the consequence. Example: 'Opponent has faster hands and KO power - every exchange at this range risks getting hurt'>",
+        "alternative": "<What to do INSTEAD - actionable alternative. Example: 'Use footwork to maintain distance, only engage after feints or when opponent is resetting'>"
+      },
+      {
+        "avoidance": "<Another thing to avoid>",
+        "reason": "<Specific danger explanation based on video>",
+        "alternative": "<Better tactical choice>"
+      },
+      {
+        "avoidance": "<Third avoidance item>",
+        "reason": "<Consequence explanation>",
+        "alternative": "<Recommended alternative>"
+      }
+    ]
   },
 
   "midFightAdjustments": {
@@ -1343,10 +1398,28 @@ function validateAndFixAnalysisData(data, config) {
       data.matchupAnalysis = {
         summary: 'Matchup analysis not available',
         keyMatchups: [],
-        predictedWinner: 'Unknown',
-        winProbability: { fighter1: 50, fighter2: 50 },
-        likelyOutcome: 'Close competitive fight'
+        criticalMoments: [],
+        opponentPreparation: {
+          keyDangers: [],
+          tacticalAdjustments: [],
+          preparationGuidance: [],
+          similarStyleGuidance: null
+        }
       };
+    }
+    // Migrate old prediction format to new opponentPreparation format
+    if (data.matchupAnalysis && !data.matchupAnalysis.opponentPreparation) {
+      data.matchupAnalysis.opponentPreparation = {
+        keyDangers: [],
+        tacticalAdjustments: [],
+        preparationGuidance: [],
+        similarStyleGuidance: null
+      };
+      // Remove old prediction fields if they exist
+      delete data.matchupAnalysis.predictedWinner;
+      delete data.matchupAnalysis.winProbability;
+      delete data.matchupAnalysis.likelyOutcome;
+      delete data.matchupAnalysis.predictionReasoning;
     }
 
     // If Claude returned data at top level instead of in fighter objects, copy it to fighter1Analysis
@@ -1633,6 +1706,28 @@ function validateAndFixAnalysisData(data, config) {
         });
       }
     }
+    // Convert legacy string thingsToAvoid to new object format
+    if (data.gamePlan.thingsToAvoid && Array.isArray(data.gamePlan.thingsToAvoid)) {
+      data.gamePlan.thingsToAvoid = data.gamePlan.thingsToAvoid.map(item => {
+        // If already in new format, return as-is
+        if (typeof item === 'object' && item.avoidance) {
+          return {
+            avoidance: ensureString(item.avoidance, 'Unknown avoidance'),
+            reason: ensureString(item.reason, 'This pattern was identified as a vulnerability based on video analysis.'),
+            alternative: ensureString(item.alternative, 'Adjust your approach based on opponent reaction and reset when necessary.')
+          };
+        }
+        // Convert legacy string format to new object format
+        if (typeof item === 'string') {
+          return {
+            avoidance: item,
+            reason: 'This pattern was identified as a vulnerability based on video analysis.',
+            alternative: 'Adjust your approach based on opponent reaction and reset when necessary.'
+          };
+        }
+        return item;
+      });
+    }
   }
 
   // Validate midFightAdjustments (skip for study mode)
@@ -1876,7 +1971,13 @@ app.get('/test-report', (req, res) => {
         }
       ],
       keyTactics: ["Pressure", "Wrestling"],
-      thingsToAvoid: ["Standing in pocket"]
+      thingsToAvoid: [
+        {
+          avoidance: "Standing in the pocket and trading",
+          reason: "Opponent has faster hands and better timing - prolonged exchanges at boxing range will accumulate damage",
+          alternative: "Close distance into clinch range or reset to outside range. Use feints before level changes for takedowns."
+        }
+      ]
     },
     midFightAdjustments: {
       adjustments: [
