@@ -190,6 +190,34 @@ Each fighter gets their OWN complete analysis with all sections.
         "grappling": { "takedownsLanded": <int>, "takedownsAttempted": <int>, "takedownAccuracy": <0-100>, "takedownsDefended": <int>, "takedownDefenseRate": <0-100>, "controlTimeSeconds": <int>, "submissionAttempts": <int>, "reversals": <int> },
         "defense": { "strikesAbsorbed": <int>, "strikesAvoided": <0-100>, "headMovementSuccess": <0-100>, "takedownsDefended": <int>, "escapes": <int> }
       }]
+    },
+    "gamePlan": {
+      "overallStrategy": "<USER's overall strategy to beat ${fighter1Name}>",
+      "roundByRound": [{ "roundNumber": <1-${userRounds}>, "objective": "<what USER should do>", "tactics": ["<USER's tactic>"], "keyFocus": "<USER's focus>" }],
+      "roundGamePlans": [{
+        "roundNumber": <1-${userRounds}>,
+        "title": "<round strategy title>",
+        "planA": { "name": "<plan name>", "goal": "<USER's goal vs ${fighter1Name}>", "tactics": ["<specific tactic for USER>"], "successIndicators": ["<what shows USER is winning>"], "switchTrigger": "<when USER should switch>" },
+        "planB": { "name": "<backup>", "goal": "<goal>", "tactics": ["<tactic>"], "successIndicators": ["<indicator>"], "switchTrigger": "<trigger>" },
+        "planC": { "name": "<emergency>", "goal": "<goal>", "tactics": ["<tactic>"], "successIndicators": ["<indicator>"], "switchTrigger": null }
+      }],
+      "keyTactics": ["<key tactic USER should use against ${fighter1Name}>"],
+      "thingsToAvoid": ["<what USER should NOT do against ${fighter1Name}>"]
+    },
+    "midFightAdjustments": {
+      "adjustments": [{ "ifCondition": "<if USER faces this situation vs ${fighter1Name}>", "thenAction": "<what USER should do>" }]
+    },
+    "trainingRecommendations": {
+      "priorityDrills": ["<drill USER should practice to beat ${fighter1Name}>"],
+      "sparringFocus": ["<sparring focus for USER>"],
+      "conditioning": ["<conditioning for USER>"]
+    },
+    "keyInsights": {
+      "criticalObservations": ["<key observation about ${fighter1Name} that USER should know>"],
+      "winConditions": ["<how USER wins against ${fighter1Name}>"],
+      "riskFactors": ["<danger USER faces against ${fighter1Name}>"],
+      "finalRecommendation": "<final advice for USER fighting ${fighter1Name}>",
+      "confidenceLevel": "<High/Medium/Low>"
     }
   },
 
@@ -259,6 +287,34 @@ Each fighter gets their OWN complete analysis with all sections.
         "grappling": { "takedownsLanded": <int>, "takedownsAttempted": <int>, "takedownAccuracy": <0-100>, "takedownsDefended": <int>, "takedownDefenseRate": <0-100>, "controlTimeSeconds": <int>, "submissionAttempts": <int>, "reversals": <int> },
         "defense": { "strikesAbsorbed": <int>, "strikesAvoided": <0-100>, "headMovementSuccess": <0-100>, "takedownsDefended": <int>, "escapes": <int> }
       }]
+    },
+    "gamePlan": {
+      "overallStrategy": "<USER's overall strategy to beat ${fighter2Name}>",
+      "roundByRound": [{ "roundNumber": <1-${userRounds}>, "objective": "<what USER should do>", "tactics": ["<USER's tactic>"], "keyFocus": "<USER's focus>" }],
+      "roundGamePlans": [{
+        "roundNumber": <1-${userRounds}>,
+        "title": "<round strategy title>",
+        "planA": { "name": "<plan name>", "goal": "<USER's goal vs ${fighter2Name}>", "tactics": ["<specific tactic for USER>"], "successIndicators": ["<what shows USER is winning>"], "switchTrigger": "<when USER should switch>" },
+        "planB": { "name": "<backup>", "goal": "<goal>", "tactics": ["<tactic>"], "successIndicators": ["<indicator>"], "switchTrigger": "<trigger>" },
+        "planC": { "name": "<emergency>", "goal": "<goal>", "tactics": ["<tactic>"], "successIndicators": ["<indicator>"], "switchTrigger": null }
+      }],
+      "keyTactics": ["<key tactic USER should use against ${fighter2Name}>"],
+      "thingsToAvoid": ["<what USER should NOT do against ${fighter2Name}>"]
+    },
+    "midFightAdjustments": {
+      "adjustments": [{ "ifCondition": "<if USER faces this situation vs ${fighter2Name}>", "thenAction": "<what USER should do>" }]
+    },
+    "trainingRecommendations": {
+      "priorityDrills": ["<drill USER should practice to beat ${fighter2Name}>"],
+      "sparringFocus": ["<sparring focus for USER>"],
+      "conditioning": ["<conditioning for USER>"]
+    },
+    "keyInsights": {
+      "criticalObservations": ["<key observation about ${fighter2Name} that USER should know>"],
+      "winConditions": ["<how USER wins against ${fighter2Name}>"],
+      "riskFactors": ["<danger USER faces against ${fighter2Name}>"],
+      "finalRecommendation": "<final advice for USER fighting ${fighter2Name}>",
+      "confidenceLevel": "<High/Medium/Low>"
     }
   },
 
@@ -268,44 +324,6 @@ Each fighter gets their OWN complete analysis with all sections.
     "predictedWinner": "<${fighter1Name} or ${fighter2Name}>",
     "winProbability": { "fighter1": <0-100>, "fighter2": <0-100> },
     "likelyOutcome": "<how the fight will likely play out>"
-  },
-
-  "gamePlan": {
-    "overallStrategy": "<overall strategy to beat ${fighter1Name} (the main opponent)>",
-    "roundByRound": [
-      { "roundNumber": <1 to ${userRounds}>, "objective": "<round objective>", "tactics": ["<tactic>"], "keyFocus": "<focus>" }
-    ],
-    "roundGamePlans": [
-      {
-        "roundNumber": <1 to ${userRounds}>,
-        "title": "<round title like 'Establish Range'>",
-        "planA": { "name": "<plan name>", "goal": "<specific goal>", "tactics": ["<specific tactic>"], "successIndicators": ["<what shows it's working>"], "switchTrigger": "<when to switch>" },
-        "planB": { "name": "<backup plan>", "goal": "<goal>", "tactics": ["<tactic>"], "successIndicators": ["<indicator>"], "switchTrigger": "<trigger>" },
-        "planC": { "name": "<emergency plan>", "goal": "<goal>", "tactics": ["<tactic>"], "successIndicators": ["<indicator>"], "switchTrigger": null }
-      }
-    ],
-    "keyTactics": ["<key tactic to use>"],
-    "thingsToAvoid": ["<what NOT to do>"]
-  },
-
-  "midFightAdjustments": {
-    "adjustments": [
-      { "ifCondition": "<if this happens...>", "thenAction": "<then do this...>" }
-    ]
-  },
-
-  "trainingRecommendations": {
-    "priorityDrills": ["<specific drill to practice>"],
-    "sparringFocus": ["<what to focus on in sparring>"],
-    "conditioning": ["<conditioning recommendation>"]
-  },
-
-  "keyInsights": {
-    "criticalObservations": ["<critical observation about the fight>"],
-    "winConditions": ["<how to win this fight>"],
-    "riskFactors": ["<what could go wrong>"],
-    "finalRecommendation": "<final advice summary>",
-    "confidenceLevel": "<High/Medium/Low>"
   }
 }
 
@@ -313,17 +331,25 @@ Each fighter gets their OWN complete analysis with all sections.
 REQUIREMENTS FOR BOTH FIGHTERS MODE
 ═══════════════════════════════════════════════════════════
 
-1. Provide COMPLETE analysis for BOTH fighters - not just one!
-2. Each fighter gets their own executiveSummary, strengths, weaknesses, etc.
-3. The counterStrategy for each fighter describes how to BEAT that fighter
-4. roundByRoundMetrics should have ${videoRounds} entries for each fighter
-5. cardioAnalysis.roundByRound should have ${videoRounds} entries for each fighter
-6. Be objective - analyze each fighter independently based on what you observe
-7. The matchupAnalysis section compares the two fighters directly
-8. gamePlan should have ${userRounds} roundGamePlans entries (for the user's upcoming fight)
-9. Provide 5-6 specific midFightAdjustments
-10. Training recommendations should be specific and actionable
-11. IMPORTANT: Give DIFFERENT overallScores for each fighter based on their ACTUAL performance - don't give both fighters the same score!
+🚨 CRITICAL PERSPECTIVE: All output is for THE USER who uploaded this video.
+The USER wants to learn how to fight AGAINST fighters like these.
+
+FOR EACH FIGHTER'S ANALYSIS:
+1. Summary, Style, Strengths, Weaknesses, Mistakes → ABOUT that fighter (objectively analyze them)
+2. Counter Strategy → How USER can beat that fighter type
+3. Game Plan → USER's round-by-round strategy to beat that fighter
+4. Adjustments → What USER should do if situations arise against that fighter
+5. Training → What USER should train to defeat that fighter type
+6. Insights → Key observations USER needs to know about that fighter
+
+SPECIFIC REQUIREMENTS:
+- Give DIFFERENT overallScores for each fighter based on their observed skill level
+- Each fighter gets their OWN gamePlan, adjustments, training, insights - NOT shared!
+- roundByRoundMetrics should have ${videoRounds} entries for each fighter
+- gamePlan.roundGamePlans should have ${userRounds} entries for each fighter
+- Provide 5-6 specific midFightAdjustments per fighter
+- Training recommendations must be specific to beating THAT fighter's style
+- All game plan content should read as "YOU should do X" or "Your goal is Y" - USER-CENTRIC!
 
 RESPOND WITH ONLY THE JSON OBJECT. NO MARKDOWN, NO EXPLANATION, JUST PURE JSON.`;
 }
