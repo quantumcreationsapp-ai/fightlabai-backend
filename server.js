@@ -344,11 +344,13 @@ Each fighter gets their OWN complete analysis with all sections.
   },
 
   "matchupAnalysis": {
-    "summary": "<overall matchup analysis between the two fighters>",
-    "keyMatchups": ["<key matchup point>"],
-    "predictedWinner": "<${fighter1Name} or ${fighter2Name}>",
-    "winProbability": { "fighter1": <0-100>, "fighter2": <0-100> },
-    "likelyOutcome": "<how the fight will likely play out>"
+    "summary": "<DETAILED 3-4 sentence matchup analysis based on WHAT YOU OBSERVED in the video. Reference specific exchanges, moments, and how each fighter performed AGAINST EACH OTHER.>",
+    "keyMatchups": ["<key matchup point observed in the video>", "<another observed interaction>", "<third key observation>", "<fourth observation>"],
+    "criticalMoments": ["<IMPORTANT: List any knockdowns, near-finishes, dominant positions, or fight-changing moments you observed - e.g., 'Fighter A knocked down Fighter B in round 2'>"],
+    "predictedWinner": "<${fighter1Name} or ${fighter2Name} - MUST be based on WHO PERFORMED BETTER IN THE VIDEO, not theoretical matchup advantages>",
+    "winProbability": { "fighter1": <0-100 based on OBSERVED performance>, "fighter2": <0-100 based on OBSERVED performance> },
+    "likelyOutcome": "<Based on what you SAW in the video, how would this fight likely end? Reference actual observed performance.>",
+    "predictionReasoning": "<DETAILED 2-3 sentence explanation of WHY you predicted this winner. Must reference specific observed moments, knockdowns, control time, or damage dealt in the video.>"
   }
 }
 
@@ -408,6 +410,29 @@ ${roleType !== 'study' ? `- Each fighter gets their OWN gamePlan, adjustments, t
 - gamePlan.roundGamePlans should have ${userRounds} entries for each fighter
 - Provide 5-6 specific midFightAdjustments per fighter
 - Training recommendations must be specific to beating THAT fighter's style` : `- Focus on pure analysis without actionable coaching recommendations`}
+
+═══════════════════════════════════════════════════════════
+🚨 CRITICAL: VIDEO-FIRST MATCHUP ANALYSIS 🚨
+═══════════════════════════════════════════════════════════
+
+The matchupAnalysis section MUST be based on WHAT YOU OBSERVE IN THE VIDEO, not theoretical matchup advantages.
+
+❌ WRONG APPROACH:
+"Wrestler usually beats striker, so I'll predict the wrestler wins."
+
+✅ CORRECT APPROACH:
+"In the video, Fighter A knocked down Fighter B in round 2 and landed significantly more clean strikes. Based on this OBSERVED performance, Fighter A is the predicted winner."
+
+CRITICAL RULES FOR MATCHUP PREDICTION:
+1. If you see a KNOCKDOWN → This HEAVILY favors the fighter who scored it
+2. If you see one fighter DOMINATING on the ground → This favors them
+3. If you see one fighter HURTING the other repeatedly → This favors them
+4. If the video shows a clear winner → Predict THAT winner regardless of style matchup theory
+5. The "predictedWinner" should match who ACTUALLY performed better in the video
+6. Include ALL critical moments (knockdowns, near-finishes) in the "criticalMoments" array
+7. winProbability should reflect OBSERVED dominance, not theoretical advantages
+
+Example: If ${fighter1Name} knocked down ${fighter2Name} in the video, ${fighter1Name} should likely be the predicted winner with higher win probability, REGARDLESS of fighting style matchup theory.
 
 ═══════════════════════════════════════════════════════════
 🏆 PREMIUM QUALITY REQUIREMENT - $19.99 ANALYSIS 🏆
