@@ -1143,7 +1143,7 @@ async function analyzeWithClaude(frames, config) {
   try {
     response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 16000,
+      max_tokens: 10000, // Reduced from 16000 - response fits in ~6000 tokens typically
       messages: [
         {
           role: 'user',
