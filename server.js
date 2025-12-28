@@ -52,6 +52,28 @@ const analysisStore = new Map(); // Stores analysis results by ID
 // ============================================
 
 /**
+ * Helper function to determine user role type from config
+ * Returns: 'fighter', 'coach', or 'study'
+ */
+function getUserRoleType(userRole) {
+  if (!userRole) return 'fighter'; // default to fighter mode
+
+  if (userRole.toLowerCase().includes('preparing to fight') ||
+      userRole.toLowerCase().includes('fighter')) {
+    return 'fighter';
+  }
+  if (userRole.toLowerCase().includes('coach')) {
+    return 'coach';
+  }
+  if (userRole.toLowerCase().includes('study') ||
+      userRole.toLowerCase().includes('analysis') ||
+      userRole.toLowerCase().includes('general')) {
+    return 'study';
+  }
+  return 'fighter'; // default
+}
+
+/**
  * Helper function to build appearance string from structured data
  */
 function buildAppearanceString(appearance, description) {
@@ -73,6 +95,10 @@ function buildAppearanceString(appearance, description) {
 /**
  * Build prompt for BOTH FIGHTERS analysis mode
  * Returns a different JSON schema with fighter1Analysis and fighter2Analysis objects
+ * Role-based output:
+ *   - fighter: Full user-centric coaching with game plans
+ *   - coach: Educational/instructional framing
+ *   - study: Pure analysis, no game plans or coaching
  */
 function buildBothFightersPrompt(config) {
   const fighter1Name = config.fighter1Name || 'Fighter 1';
@@ -80,6 +106,7 @@ function buildBothFightersPrompt(config) {
   const userRounds = config.userFightRounds || 3;
   const videoRounds = config.videoRounds || 3;
   const sessionType = config.sessionType || 'competition';
+  const roleType = getUserRoleType(config.userRole);
 
   const fighter1Appearance = config.fighter1Appearance || {};
   const fighter2Appearance = config.fighter2Appearance || {};
@@ -94,6 +121,59 @@ function buildBothFightersPrompt(config) {
 
   const fighter1Background = config.fighter1DeclaredBackground || null;
   const fighter2Background = config.fighter2DeclaredBackground || null;
+
+  // Role-specific context
+  const roleContext = {
+    'fighter': 'You are preparing to fight against fighters with these styles.',
+    'coach': 'You are a coach analyzing these fighters to help train your students.',
+    'study': 'You are studying these fighters for general analysis and understanding.'
+  }[roleType];
+
+  // Build user-centric sections (gamePlan, adjustments, training, insights) only for fighter/coach modes
+  const buildUserCentricSections = (fighterName, isStudyMode, isFighter) => {
+    if (isStudyMode) {
+      return ''; // No user-centric sections for study mode
+    }
+
+    const perspective = isFighter
+      ? { subject: 'USER', action: 'you should', goal: 'your' }
+      : { subject: 'your fighter', action: 'your fighter should', goal: "your fighter's" };
+
+    return `
+    "gamePlan": {
+      "overallStrategy": "<${perspective.subject}'s overall strategy to beat ${fighterName}>",
+      "roundByRound": [{ "roundNumber": <1-${userRounds}>, "objective": "<what ${perspective.action} do>", "tactics": ["<${perspective.subject}'s tactic>"], "keyFocus": "<${perspective.subject}'s focus>" }],
+      "roundGamePlans": [{
+        "roundNumber": <1-${userRounds}>,
+        "title": "<round strategy title>",
+        "planA": { "name": "<plan name>", "goal": "<${perspective.goal} goal vs ${fighterName}>", "tactics": ["<specific tactic for ${perspective.subject}>"], "successIndicators": ["<what shows ${perspective.subject} is winning>"], "switchTrigger": "<when ${perspective.action} switch>" },
+        "planB": { "name": "<backup>", "goal": "<goal>", "tactics": ["<tactic>"], "successIndicators": ["<indicator>"], "switchTrigger": "<trigger>" },
+        "planC": { "name": "<emergency>", "goal": "<goal>", "tactics": ["<tactic>"], "successIndicators": ["<indicator>"], "switchTrigger": null }
+      }],
+      "keyTactics": ["<key tactic ${perspective.subject} should use against ${fighterName}>"],
+      "thingsToAvoid": ["<what ${perspective.subject} should NOT do against ${fighterName}>"]
+    },
+    "midFightAdjustments": {
+      "adjustments": [{ "ifCondition": "<if ${perspective.subject} faces this situation vs ${fighterName}>", "thenAction": "<what ${perspective.action} do>" }]
+    },
+    "trainingRecommendations": {
+      "priorityDrills": ["<drill ${perspective.subject} should practice to beat ${fighterName}>"],
+      "sparringFocus": ["<sparring focus for ${perspective.subject}>"],
+      "conditioning": ["<conditioning for ${perspective.subject}>"]
+    },
+    "keyInsights": {
+      "criticalObservations": ["<key observation about ${fighterName} that ${perspective.subject} should know>"],
+      "winConditions": ["<how ${perspective.subject} wins against ${fighterName}>"],
+      "riskFactors": ["<danger ${perspective.subject} faces against ${fighterName}>"],
+      "finalRecommendation": "<final advice for ${perspective.subject} fighting ${fighterName}>",
+      "confidenceLevel": "<High/Medium/Low>"
+    }`;
+  };
+
+  const isFighterMode = roleType === 'fighter';
+  const isStudyMode = roleType === 'study';
+  const fighter1UserSections = buildUserCentricSections(fighter1Name, isStudyMode, isFighterMode);
+  const fighter2UserSections = buildUserCentricSections(fighter2Name, isStudyMode, isFighterMode);
 
   return `You are an expert MMA fight analyst. Analyze the provided fight video frames and generate a comprehensive tactical analysis for BOTH FIGHTERS.
 
@@ -115,6 +195,7 @@ ${fighter2Background ? `DECLARED BACKGROUND: ${fighter2Background}` : ''}
 
 VIDEO: ${videoRounds} rounds of ${sessionType}
 USER'S UPCOMING FIGHT: ${userRounds} rounds
+ANALYSIS MODE: ${roleType.toUpperCase()} - ${roleContext}
 
 ═══════════════════════════════════════════════════════════
 CRITICAL: JSON OUTPUT FORMAT FOR BOTH FIGHTERS
@@ -190,35 +271,7 @@ Each fighter gets their OWN complete analysis with all sections.
         "grappling": { "takedownsLanded": <int>, "takedownsAttempted": <int>, "takedownAccuracy": <0-100>, "takedownsDefended": <int>, "takedownDefenseRate": <0-100>, "controlTimeSeconds": <int>, "submissionAttempts": <int>, "reversals": <int> },
         "defense": { "strikesAbsorbed": <int>, "strikesAvoided": <0-100>, "headMovementSuccess": <0-100>, "takedownsDefended": <int>, "escapes": <int> }
       }]
-    },
-    "gamePlan": {
-      "overallStrategy": "<USER's overall strategy to beat ${fighter1Name}>",
-      "roundByRound": [{ "roundNumber": <1-${userRounds}>, "objective": "<what USER should do>", "tactics": ["<USER's tactic>"], "keyFocus": "<USER's focus>" }],
-      "roundGamePlans": [{
-        "roundNumber": <1-${userRounds}>,
-        "title": "<round strategy title>",
-        "planA": { "name": "<plan name>", "goal": "<USER's goal vs ${fighter1Name}>", "tactics": ["<specific tactic for USER>"], "successIndicators": ["<what shows USER is winning>"], "switchTrigger": "<when USER should switch>" },
-        "planB": { "name": "<backup>", "goal": "<goal>", "tactics": ["<tactic>"], "successIndicators": ["<indicator>"], "switchTrigger": "<trigger>" },
-        "planC": { "name": "<emergency>", "goal": "<goal>", "tactics": ["<tactic>"], "successIndicators": ["<indicator>"], "switchTrigger": null }
-      }],
-      "keyTactics": ["<key tactic USER should use against ${fighter1Name}>"],
-      "thingsToAvoid": ["<what USER should NOT do against ${fighter1Name}>"]
-    },
-    "midFightAdjustments": {
-      "adjustments": [{ "ifCondition": "<if USER faces this situation vs ${fighter1Name}>", "thenAction": "<what USER should do>" }]
-    },
-    "trainingRecommendations": {
-      "priorityDrills": ["<drill USER should practice to beat ${fighter1Name}>"],
-      "sparringFocus": ["<sparring focus for USER>"],
-      "conditioning": ["<conditioning for USER>"]
-    },
-    "keyInsights": {
-      "criticalObservations": ["<key observation about ${fighter1Name} that USER should know>"],
-      "winConditions": ["<how USER wins against ${fighter1Name}>"],
-      "riskFactors": ["<danger USER faces against ${fighter1Name}>"],
-      "finalRecommendation": "<final advice for USER fighting ${fighter1Name}>",
-      "confidenceLevel": "<High/Medium/Low>"
-    }
+    }${fighter1UserSections}
   },
 
   "fighter2Analysis": {
@@ -287,35 +340,7 @@ Each fighter gets their OWN complete analysis with all sections.
         "grappling": { "takedownsLanded": <int>, "takedownsAttempted": <int>, "takedownAccuracy": <0-100>, "takedownsDefended": <int>, "takedownDefenseRate": <0-100>, "controlTimeSeconds": <int>, "submissionAttempts": <int>, "reversals": <int> },
         "defense": { "strikesAbsorbed": <int>, "strikesAvoided": <0-100>, "headMovementSuccess": <0-100>, "takedownsDefended": <int>, "escapes": <int> }
       }]
-    },
-    "gamePlan": {
-      "overallStrategy": "<USER's overall strategy to beat ${fighter2Name}>",
-      "roundByRound": [{ "roundNumber": <1-${userRounds}>, "objective": "<what USER should do>", "tactics": ["<USER's tactic>"], "keyFocus": "<USER's focus>" }],
-      "roundGamePlans": [{
-        "roundNumber": <1-${userRounds}>,
-        "title": "<round strategy title>",
-        "planA": { "name": "<plan name>", "goal": "<USER's goal vs ${fighter2Name}>", "tactics": ["<specific tactic for USER>"], "successIndicators": ["<what shows USER is winning>"], "switchTrigger": "<when USER should switch>" },
-        "planB": { "name": "<backup>", "goal": "<goal>", "tactics": ["<tactic>"], "successIndicators": ["<indicator>"], "switchTrigger": "<trigger>" },
-        "planC": { "name": "<emergency>", "goal": "<goal>", "tactics": ["<tactic>"], "successIndicators": ["<indicator>"], "switchTrigger": null }
-      }],
-      "keyTactics": ["<key tactic USER should use against ${fighter2Name}>"],
-      "thingsToAvoid": ["<what USER should NOT do against ${fighter2Name}>"]
-    },
-    "midFightAdjustments": {
-      "adjustments": [{ "ifCondition": "<if USER faces this situation vs ${fighter2Name}>", "thenAction": "<what USER should do>" }]
-    },
-    "trainingRecommendations": {
-      "priorityDrills": ["<drill USER should practice to beat ${fighter2Name}>"],
-      "sparringFocus": ["<sparring focus for USER>"],
-      "conditioning": ["<conditioning for USER>"]
-    },
-    "keyInsights": {
-      "criticalObservations": ["<key observation about ${fighter2Name} that USER should know>"],
-      "winConditions": ["<how USER wins against ${fighter2Name}>"],
-      "riskFactors": ["<danger USER faces against ${fighter2Name}>"],
-      "finalRecommendation": "<final advice for USER fighting ${fighter2Name}>",
-      "confidenceLevel": "<High/Medium/Low>"
-    }
+    }${fighter2UserSections}
   },
 
   "matchupAnalysis": {
@@ -328,10 +353,41 @@ Each fighter gets their OWN complete analysis with all sections.
 }
 
 ═══════════════════════════════════════════════════════════
-REQUIREMENTS FOR BOTH FIGHTERS MODE
+REQUIREMENTS FOR BOTH FIGHTERS MODE - ${roleType.toUpperCase()} ROLE
 ═══════════════════════════════════════════════════════════
 
-🚨 CRITICAL PERSPECTIVE: All output is for THE USER who uploaded this video.
+${roleType === 'study' ? `
+🔬 STUDY MODE - NEUTRAL ANALYSIS
+
+You are providing an objective, educational breakdown of both fighters.
+NO game plans, NO training recommendations, NO personalized coaching.
+
+FOR EACH FIGHTER'S ANALYSIS:
+1. Summary, Style, Strengths, Weaknesses, Mistakes → Objective analysis of each fighter
+2. Counter Strategy → General tactical analysis of how to counter this style
+3. DO NOT include: gamePlan, midFightAdjustments, trainingRecommendations, keyInsights
+
+Focus on describing WHAT you observe, not prescribing what someone should DO.
+Use neutral language: "The fighter demonstrates...", "This style is characterized by..."
+` : roleType === 'coach' ? `
+🎓 COACH MODE - INSTRUCTIONAL ANALYSIS
+
+You are a coach analyzing these fighters to train your students.
+Frame everything from an educational, instructional perspective.
+
+FOR EACH FIGHTER'S ANALYSIS:
+1. Summary, Style, Strengths, Weaknesses, Mistakes → ABOUT that fighter (objectively analyze them)
+2. Counter Strategy → How to teach a fighter to beat this style
+3. Game Plan → Your fighter's round-by-round strategy to beat this opponent
+4. Adjustments → What your fighter should do if situations arise
+5. Training → What drills and training to prescribe
+6. Insights → Key teaching points about this fighter type
+
+Use instructional language: "Your fighter should...", "Teach them to...", "Focus training on..."
+` : `
+🥊 FIGHTER MODE - USER-CENTRIC COACHING
+
+All output is for THE USER who uploaded this video.
 The USER wants to learn how to fight AGAINST fighters like these.
 
 FOR EACH FIGHTER'S ANALYSIS:
@@ -342,14 +398,16 @@ FOR EACH FIGHTER'S ANALYSIS:
 5. Training → What USER should train to defeat that fighter type
 6. Insights → Key observations USER needs to know about that fighter
 
+All game plan content should read as "YOU should do X" or "Your goal is Y" - USER-CENTRIC!
+`}
+
 SPECIFIC REQUIREMENTS:
 - Give DIFFERENT overallScores for each fighter based on their observed skill level
-- Each fighter gets their OWN gamePlan, adjustments, training, insights - NOT shared!
 - roundByRoundMetrics should have ${videoRounds} entries for each fighter
+${roleType !== 'study' ? `- Each fighter gets their OWN gamePlan, adjustments, training, insights - NOT shared!
 - gamePlan.roundGamePlans should have ${userRounds} entries for each fighter
 - Provide 5-6 specific midFightAdjustments per fighter
-- Training recommendations must be specific to beating THAT fighter's style
-- All game plan content should read as "YOU should do X" or "Your goal is Y" - USER-CENTRIC!
+- Training recommendations must be specific to beating THAT fighter's style` : `- Focus on pure analysis without actionable coaching recommendations`}
 
 RESPOND WITH ONLY THE JSON OBJECT. NO MARKDOWN, NO EXPLANATION, JUST PURE JSON.`;
 }
@@ -357,6 +415,10 @@ RESPOND WITH ONLY THE JSON OBJECT. NO MARKDOWN, NO EXPLANATION, JUST PURE JSON.`
 /**
  * Build the Claude prompt with EXACT JSON schema matching iOS models
  * This is CRITICAL - the JSON structure must match AnalysisReport.swift exactly
+ * Role-based output:
+ *   - fighter: Full user-centric coaching with game plans
+ *   - coach: Educational/instructional framing
+ *   - study: Pure analysis, no game plans or coaching
  */
 function buildClaudePrompt(config) {
   // For "both" mode, use the special prompt
@@ -368,6 +430,7 @@ function buildClaudePrompt(config) {
   const userRounds = config.userFightRounds || 3;
   const videoRounds = config.videoRounds || 3;
   const sessionType = config.sessionType || 'competition';
+  const roleType = getUserRoleType(config.userRole);
 
   // Extract appearance data (new structured format or legacy string)
   const fighter1Appearance = config.fighter1Appearance || {};
@@ -397,11 +460,81 @@ ${fighter1Background ? `DECLARED BACKGROUND: ${fighter1Background} (user-provide
 ⚠️ The OTHER fighter in the video is the OPPONENT - do NOT analyze their skills as if they belong to ${fighterName}.
 ${fighter1Background ? `⚠️ User says "${fighterName}" has a ${fighter1Background} background - VERIFY this matches what you observe. Report if different.` : ''}`;
 
-  const roleContext = {
-    'fighter': 'Fighter preparing to face this opponent',
-    'coach': 'Coach analyzing for their student/fighter',
-    'study': 'General study and analysis purposes'
-  }[config.userRole] || 'General analysis';
+  const roleContextLabel = {
+    'fighter': 'FIGHTER MODE - User preparing to face this opponent',
+    'coach': 'COACH MODE - Coach analyzing for their student/fighter',
+    'study': 'STUDY MODE - General study and analysis purposes'
+  }[roleType] || 'General analysis';
+
+  // Determine if we should include user-centric sections
+  const isStudyMode = roleType === 'study';
+  const isFighterMode = roleType === 'fighter';
+
+  // Build user-centric sections for the JSON schema
+  const userCentricJsonSchema = isStudyMode ? '' : `
+  "gamePlan": {
+    "overallStrategy": "<string: ${isFighterMode ? 'your' : "your fighter's"} overall fight strategy>",
+    "roundByRound": [
+      {
+        "roundNumber": <integer: 1 to ${userRounds}>,
+        "objective": "<string: ${isFighterMode ? 'your' : "your fighter's"} round objective>",
+        "tactics": ["<string: specific tactic>"],
+        "keyFocus": "<string: main focus for round>"
+      }
+    ],
+    "roundGamePlans": [
+      {
+        "roundNumber": <integer: 1 to ${userRounds}>,
+        "title": "<string: round title>",
+        "planA": {
+          "name": "<string: plan name>",
+          "goal": "<string: what to achieve>",
+          "tactics": ["<string>"],
+          "successIndicators": ["<string: sign plan is working>"],
+          "switchTrigger": "<string or null: when to switch plans>"
+        },
+        "planB": {
+          "name": "<string>",
+          "goal": "<string>",
+          "tactics": ["<string>"],
+          "successIndicators": ["<string>"],
+          "switchTrigger": "<string or null>"
+        },
+        "planC": {
+          "name": "<string>",
+          "goal": "<string>",
+          "tactics": ["<string>"],
+          "successIndicators": ["<string>"],
+          "switchTrigger": null
+        }
+      }
+    ],
+    "keyTactics": ["<string: key tactic>"],
+    "thingsToAvoid": ["<string: what NOT to do>"]
+  },
+
+  "midFightAdjustments": {
+    "adjustments": [
+      {
+        "ifCondition": "<string: if this happens...>",
+        "thenAction": "<string: then ${isFighterMode ? 'you should' : 'your fighter should'} do this...>"
+      }
+    ]
+  },
+
+  "trainingRecommendations": {
+    "priorityDrills": ["<string: specific drill ${isFighterMode ? 'you' : 'your fighter'} should practice>"],
+    "sparringFocus": ["<string: sparring focus area>"],
+    "conditioning": ["<string: conditioning recommendation>"]
+  },
+
+  "keyInsights": {
+    "criticalObservations": ["<string: critical observation about opponent>"],
+    "winConditions": ["<string: how ${isFighterMode ? 'you' : 'your fighter'} wins>"],
+    "riskFactors": ["<string: potential risk>"],
+    "finalRecommendation": "<string: final advice>",
+    "confidenceLevel": "<string: 'High', 'Medium', or 'Low'>"
+  },`;
 
   return `You are an expert MMA fight analyst. Analyze the provided fight video frames and generate a comprehensive tactical analysis.
 
@@ -455,7 +588,7 @@ VIDEO-ONLY ANALYSIS
 
 VIDEO: ${videoRounds} rounds of ${sessionType}
 USER'S UPCOMING FIGHT: ${userRounds} rounds
-USER CONTEXT: ${roleContext}
+ANALYSIS MODE: ${roleContextLabel}
 
 ═══════════════════════════════════════════════════════════
 CRITICAL: JSON OUTPUT FORMAT
@@ -598,71 +731,7 @@ Use camelCase for all field names. All scores are 0-100 unless noted.
     },
     "techniquesToEmphasize": ["<string: specific technique>"]
   },
-
-  "gamePlan": {
-    "overallStrategy": "<string: overall fight strategy>",
-    "roundByRound": [
-      {
-        "roundNumber": <integer: 1 to ${userRounds}>,
-        "objective": "<string: round objective>",
-        "tactics": ["<string: specific tactic>"],
-        "keyFocus": "<string: main focus for round>"
-      }
-    ],
-    "roundGamePlans": [
-      {
-        "roundNumber": <integer: 1 to ${userRounds}>,
-        "title": "<string: round title>",
-        "planA": {
-          "name": "<string: plan name>",
-          "goal": "<string: what to achieve>",
-          "tactics": ["<string>"],
-          "successIndicators": ["<string: sign plan is working>"],
-          "switchTrigger": "<string or null: when to switch plans>"
-        },
-        "planB": {
-          "name": "<string>",
-          "goal": "<string>",
-          "tactics": ["<string>"],
-          "successIndicators": ["<string>"],
-          "switchTrigger": "<string or null>"
-        },
-        "planC": {
-          "name": "<string>",
-          "goal": "<string>",
-          "tactics": ["<string>"],
-          "successIndicators": ["<string>"],
-          "switchTrigger": null
-        }
-      }
-    ],
-    "keyTactics": ["<string: key tactic>"],
-    "thingsToAvoid": ["<string: what NOT to do>"]
-  },
-
-  "midFightAdjustments": {
-    "adjustments": [
-      {
-        "ifCondition": "<string: if this happens...>",
-        "thenAction": "<string: then do this...>"
-      }
-    ]
-  },
-
-  "trainingRecommendations": {
-    "priorityDrills": ["<string: specific drill>"],
-    "sparringFocus": ["<string: sparring focus area>"],
-    "conditioning": ["<string: conditioning recommendation>"]
-  },
-
-  "keyInsights": {
-    "criticalObservations": ["<string: critical observation>"],
-    "winConditions": ["<string: how to win>"],
-    "riskFactors": ["<string: potential risk>"],
-    "finalRecommendation": "<string: final advice>",
-    "confidenceLevel": "<string: 'High', 'Medium', or 'Low'>"
-  },
-
+${userCentricJsonSchema}
   "roundByRoundMetrics": {
     "rounds": [
       {
@@ -703,19 +772,46 @@ Use camelCase for all field names. All scores are 0-100 unless noted.
 }
 
 ═══════════════════════════════════════════════════════════
-REQUIREMENTS
+REQUIREMENTS - ${roleType.toUpperCase()} MODE
 ═══════════════════════════════════════════════════════════
 
-1. GAME PLANS: Create EXACTLY ${userRounds} roundByRound entries and ${userRounds} roundGamePlans entries (for rounds 1-${userRounds})
-2. ROUND METRICS: Create EXACTLY ${videoRounds} entries in roundByRoundMetrics.rounds (for rounds 1-${videoRounds} from video)
-3. CARDIO: Create ${videoRounds} roundByRound entries in cardioAnalysis
-4. STRENGTHS: Provide 3-5 strengths with scores - ONLY what you OBSERVED in the video
-5. WEAKNESSES: Provide 3-5 weaknesses with exploitation strategies - ONLY what you OBSERVED
-6. MISTAKES: Provide 3-5 mistake patterns you actually SAW in the video
-7. ADJUSTMENTS: Provide 5-6 if/then adjustments
-8. Use the fighter's actual name "${fighterName}" throughout the report
-9. Be specific and actionable in all recommendations
-10. All number scores should be realistic (not all 80s - vary them based on actual observation)
+${isStudyMode ? `
+🔬 STUDY MODE - NEUTRAL ANALYSIS
+
+You are providing an objective, educational breakdown of this fighter.
+NO game plans, NO training recommendations, NO personalized coaching.
+
+Focus on describing WHAT you observe, not prescribing what someone should DO.
+Use neutral language: "The fighter demonstrates...", "This style is characterized by..."
+
+DO NOT include: gamePlan, midFightAdjustments, trainingRecommendations, keyInsights
+` : roleType === 'coach' ? `
+🎓 COACH MODE - INSTRUCTIONAL ANALYSIS
+
+You are a coach analyzing this fighter to train your students.
+Frame everything from an educational, instructional perspective.
+
+Use instructional language: "Your fighter should...", "Teach them to...", "Focus training on..."
+` : `
+🥊 FIGHTER MODE - USER-CENTRIC COACHING
+
+All output is for THE USER who uploaded this video.
+The USER wants to learn how to fight AGAINST this fighter.
+
+All coaching content should read as "YOU should do X" or "Your goal is Y" - USER-CENTRIC!
+`}
+
+SPECIFIC REQUIREMENTS:
+${!isStudyMode ? `1. GAME PLANS: Create EXACTLY ${userRounds} roundByRound entries and ${userRounds} roundGamePlans entries (for rounds 1-${userRounds})
+2. ` : `1. `}ROUND METRICS: Create EXACTLY ${videoRounds} entries in roundByRoundMetrics.rounds (for rounds 1-${videoRounds} from video)
+${!isStudyMode ? `3. ` : `2. `}CARDIO: Create ${videoRounds} roundByRound entries in cardioAnalysis
+${!isStudyMode ? `4. ` : `3. `}STRENGTHS: Provide 3-5 strengths with scores - ONLY what you OBSERVED in the video
+${!isStudyMode ? `5. ` : `4. `}WEAKNESSES: Provide 3-5 weaknesses with exploitation strategies - ONLY what you OBSERVED
+${!isStudyMode ? `6. ` : `5. `}MISTAKES: Provide 3-5 mistake patterns you actually SAW in the video
+${!isStudyMode ? `7. ADJUSTMENTS: Provide 5-6 if/then adjustments
+8. ` : `6. `}Use the fighter's actual name "${fighterName}" throughout the report
+${!isStudyMode ? `9. ` : `7. `}Be specific and actionable in all ${isStudyMode ? 'observations' : 'recommendations'}
+${!isStudyMode ? `10. ` : `8. `}All number scores should be realistic (not all 80s - vary them based on actual observation)
 
 ═══════════════════════════════════════════════════════════
 CRITICAL REMINDERS
@@ -1083,10 +1179,13 @@ function validateSingleFighterAnalysis(data, fighterName, videoRounds) {
 /**
  * Validate and fix analysis data to match iOS AnalysisReport model exactly
  * Adds default values for missing optional fields, ensures correct types
+ * Handles role-based sections (study mode may not have game plans, etc.)
  */
 function validateAndFixAnalysisData(data, config) {
   const userRounds = config.userFightRounds || 3;
   const videoRounds = config.videoRounds || 3;
+  const roleType = getUserRoleType(config.userRole);
+  const isStudyMode = roleType === 'study';
 
   // Helper to ensure array
   const ensureArray = (val, defaultArr = []) => Array.isArray(val) ? val : defaultArr;
@@ -1144,40 +1243,47 @@ function validateAndFixAnalysisData(data, config) {
     // Validate fighter2Analysis
     data.fighter2Analysis = validateSingleFighterAnalysis(data.fighter2Analysis, config.fighter2Name || 'Fighter 2', videoRounds);
 
-    // Ensure shared sections exist at top level for iOS compatibility
+    // Ensure shared sections exist at top level for iOS compatibility (skip for study mode)
     // Game Plan, Adjustments, Training, KeyInsights are shared between fighters
+    const roleType = getUserRoleType(config.userRole);
+    const isStudyMode = roleType === 'study';
+
     if (!data.gamePlan) {
-      data.gamePlan = {
-        overallStrategy: 'Implement a balanced game plan.',
-        roundByRound: [],
-        roundGamePlans: [],
-        keyTactics: [],
-        thingsToAvoid: []
-      };
-      // Generate default game plans for user rounds
-      for (let i = 1; i <= userRounds; i++) {
-        data.gamePlan.roundByRound.push({
-          roundNumber: i,
-          objective: `Round ${i} objective`,
-          tactics: ['Stay focused', 'Execute game plan'],
-          keyFocus: 'Maintain composure'
-        });
-        data.gamePlan.roundGamePlans.push({
-          roundNumber: i,
-          title: `Round ${i} Strategy`,
-          planA: { name: 'Primary Plan', goal: 'Execute strategy', tactics: ['Stay focused'], successIndicators: ['Landing strikes'], switchTrigger: 'If not working' },
-          planB: { name: 'Backup Plan', goal: 'Adjust approach', tactics: ['Change rhythm'], successIndicators: ['Creating openings'], switchTrigger: 'If needed' },
-          planC: { name: 'Emergency Plan', goal: 'Survive and recover', tactics: ['Clinch and control'], successIndicators: ['Regaining composure'], switchTrigger: null }
-        });
+      if (isStudyMode) {
+        data.gamePlan = null;
+      } else {
+        data.gamePlan = {
+          overallStrategy: 'Implement a balanced game plan.',
+          roundByRound: [],
+          roundGamePlans: [],
+          keyTactics: [],
+          thingsToAvoid: []
+        };
+        // Generate default game plans for user rounds
+        for (let i = 1; i <= userRounds; i++) {
+          data.gamePlan.roundByRound.push({
+            roundNumber: i,
+            objective: `Round ${i} objective`,
+            tactics: ['Stay focused', 'Execute game plan'],
+            keyFocus: 'Maintain composure'
+          });
+          data.gamePlan.roundGamePlans.push({
+            roundNumber: i,
+            title: `Round ${i} Strategy`,
+            planA: { name: 'Primary Plan', goal: 'Execute strategy', tactics: ['Stay focused'], successIndicators: ['Landing strikes'], switchTrigger: 'If not working' },
+            planB: { name: 'Backup Plan', goal: 'Adjust approach', tactics: ['Change rhythm'], successIndicators: ['Creating openings'], switchTrigger: 'If needed' },
+            planC: { name: 'Emergency Plan', goal: 'Survive and recover', tactics: ['Clinch and control'], successIndicators: ['Regaining composure'], switchTrigger: null }
+          });
+        }
       }
     }
 
     if (!data.midFightAdjustments) {
-      data.midFightAdjustments = { adjustments: [] };
+      data.midFightAdjustments = isStudyMode ? null : { adjustments: [] };
     }
 
     if (!data.trainingRecommendations) {
-      data.trainingRecommendations = {
+      data.trainingRecommendations = isStudyMode ? null : {
         priorityDrills: [],
         sparringFocus: [],
         conditioning: []
@@ -1185,7 +1291,7 @@ function validateAndFixAnalysisData(data, config) {
     }
 
     if (!data.keyInsights) {
-      data.keyInsights = {
+      data.keyInsights = isStudyMode ? null : {
         criticalObservations: [],
         winConditions: [],
         riskFactors: [],
@@ -1360,69 +1466,90 @@ function validateAndFixAnalysisData(data, config) {
     };
   }
 
-  // Validate gamePlan
+  // Validate gamePlan (skip population for study mode)
   if (!data.gamePlan) {
-    data.gamePlan = {
-      overallStrategy: 'Implement a balanced game plan.',
-      roundByRound: [],
-      roundGamePlans: [],
-      keyTactics: [],
-      thingsToAvoid: []
-    };
-  }
-  // Ensure roundByRound has correct number of entries
-  if (!data.gamePlan.roundByRound || data.gamePlan.roundByRound.length < userRounds) {
-    data.gamePlan.roundByRound = [];
-    for (let i = 1; i <= userRounds; i++) {
-      data.gamePlan.roundByRound.push({
-        roundNumber: i,
-        objective: `Round ${i} objective`,
-        tactics: ['Stay focused', 'Execute game plan'],
-        keyFocus: 'Maintain composure'
-      });
+    if (isStudyMode) {
+      // Study mode: minimal/null game plan
+      data.gamePlan = null;
+    } else {
+      data.gamePlan = {
+        overallStrategy: 'Implement a balanced game plan.',
+        roundByRound: [],
+        roundGamePlans: [],
+        keyTactics: [],
+        thingsToAvoid: []
+      };
     }
   }
-  // Ensure roundGamePlans has correct number of entries
-  if (!data.gamePlan.roundGamePlans || data.gamePlan.roundGamePlans.length < userRounds) {
-    data.gamePlan.roundGamePlans = [];
-    for (let i = 1; i <= userRounds; i++) {
-      data.gamePlan.roundGamePlans.push({
-        roundNumber: i,
-        title: `Round ${i} Strategy`,
-        planA: { name: 'Primary Plan', goal: 'Execute strategy', tactics: ['Stay focused'], successIndicators: ['Landing strikes'], switchTrigger: 'If not working, switch' },
-        planB: { name: 'Backup Plan', goal: 'Adjust approach', tactics: ['Change rhythm'], successIndicators: ['Creating openings'], switchTrigger: 'If needed' },
-        planC: { name: 'Emergency Plan', goal: 'Survive and recover', tactics: ['Clinch and control'], successIndicators: ['Regaining composure'], switchTrigger: null }
-      });
+  // Ensure roundByRound has correct number of entries (only if not study mode)
+  if (!isStudyMode && data.gamePlan) {
+    if (!data.gamePlan.roundByRound || data.gamePlan.roundByRound.length < userRounds) {
+      data.gamePlan.roundByRound = [];
+      for (let i = 1; i <= userRounds; i++) {
+        data.gamePlan.roundByRound.push({
+          roundNumber: i,
+          objective: `Round ${i} objective`,
+          tactics: ['Stay focused', 'Execute game plan'],
+          keyFocus: 'Maintain composure'
+        });
+      }
+    }
+    // Ensure roundGamePlans has correct number of entries
+    if (!data.gamePlan.roundGamePlans || data.gamePlan.roundGamePlans.length < userRounds) {
+      data.gamePlan.roundGamePlans = [];
+      for (let i = 1; i <= userRounds; i++) {
+        data.gamePlan.roundGamePlans.push({
+          roundNumber: i,
+          title: `Round ${i} Strategy`,
+          planA: { name: 'Primary Plan', goal: 'Execute strategy', tactics: ['Stay focused'], successIndicators: ['Landing strikes'], switchTrigger: 'If not working, switch' },
+          planB: { name: 'Backup Plan', goal: 'Adjust approach', tactics: ['Change rhythm'], successIndicators: ['Creating openings'], switchTrigger: 'If needed' },
+          planC: { name: 'Emergency Plan', goal: 'Survive and recover', tactics: ['Clinch and control'], successIndicators: ['Regaining composure'], switchTrigger: null }
+        });
+      }
     }
   }
 
-  // Validate midFightAdjustments
+  // Validate midFightAdjustments (skip for study mode)
   if (!data.midFightAdjustments) {
-    data.midFightAdjustments = { adjustments: [] };
+    if (isStudyMode) {
+      data.midFightAdjustments = null;
+    } else {
+      data.midFightAdjustments = { adjustments: [] };
+    }
   }
-  data.midFightAdjustments.adjustments = ensureArray(data.midFightAdjustments.adjustments, []).map(a => ({
-    ifCondition: ensureString(a.ifCondition, 'If opponent adjusts'),
-    thenAction: ensureString(a.thenAction, 'Then counter-adjust')
-  }));
+  if (!isStudyMode && data.midFightAdjustments) {
+    data.midFightAdjustments.adjustments = ensureArray(data.midFightAdjustments.adjustments, []).map(a => ({
+      ifCondition: ensureString(a.ifCondition, 'If opponent adjusts'),
+      thenAction: ensureString(a.thenAction, 'Then counter-adjust')
+    }));
+  }
 
-  // Validate trainingRecommendations
+  // Validate trainingRecommendations (skip for study mode)
   if (!data.trainingRecommendations) {
-    data.trainingRecommendations = {
-      priorityDrills: [],
-      sparringFocus: [],
-      conditioning: []
-    };
+    if (isStudyMode) {
+      data.trainingRecommendations = null;
+    } else {
+      data.trainingRecommendations = {
+        priorityDrills: [],
+        sparringFocus: [],
+        conditioning: []
+      };
+    }
   }
 
-  // Validate keyInsights
+  // Validate keyInsights (skip for study mode)
   if (!data.keyInsights) {
-    data.keyInsights = {
-      criticalObservations: [],
-      winConditions: [],
-      riskFactors: [],
-      finalRecommendation: 'Focus on your strengths and stay disciplined.',
-      confidenceLevel: 'Medium'
-    };
+    if (isStudyMode) {
+      data.keyInsights = null;
+    } else {
+      data.keyInsights = {
+        criticalObservations: [],
+        winConditions: [],
+        riskFactors: [],
+        finalRecommendation: 'Focus on your strengths and stay disciplined.',
+        confidenceLevel: 'Medium'
+      };
+    }
   }
 
   // Validate roundByRoundMetrics
