@@ -61,17 +61,56 @@ function buildClaudePrompt(config) {
   const videoRounds = config.videoRounds || 3;
   const sessionType = config.sessionType || 'competition';
 
+  // Extract appearance data (new structured format or legacy string)
+  const fighter1Appearance = config.fighter1Appearance || {};
+  const fighter2Appearance = config.fighter2Appearance || {};
+
+  // Get shorts color - prefer structured, fall back to legacy description parsing
+  const shortsColor = fighter1Appearance.shortsColor ||
+    config.fighter1Description?.match(/(\w+)\s*shorts/i)?.[1] || '';
+  const fighter2ShortsColor = fighter2Appearance.shortsColor ||
+    config.fighter2Description?.match(/(\w+)\s*shorts/i)?.[1] || '';
+
+  // Build appearance description from structured data
+  function buildAppearanceString(appearance, description) {
+    if (!appearance || Object.keys(appearance).length === 0) {
+      return description || '';
+    }
+    const parts = [];
+    if (appearance.shortsColor) parts.push(`${appearance.shortsColor} shorts`);
+    if (appearance.skinTone) parts.push(`${appearance.skinTone} skin tone`);
+    if (appearance.bodyBuild) parts.push(`${appearance.bodyBuild} build`);
+    if (appearance.relativeHeight) parts.push(appearance.relativeHeight);
+    if (appearance.distinguishingFeatures?.length > 0) {
+      parts.push(appearance.distinguishingFeatures.join(', '));
+    }
+    if (appearance.customDescription) parts.push(appearance.customDescription);
+    return parts.length > 0 ? parts.join(', ') : (description || '');
+  }
+
+  const fighter1AppearanceStr = buildAppearanceString(fighter1Appearance, config.fighter1Description);
+  const fighter2AppearanceStr = buildAppearanceString(fighter2Appearance, config.fighter2Description);
+
+  // Get declared backgrounds
+  const fighter1Background = config.fighter1DeclaredBackground || null;
+  const fighter2Background = config.fighter2DeclaredBackground || null;
+
   // Build fighter context with STRONG visual emphasis
   let fighterContext = '';
-  const shortsColor = config.fighter1ShortsColor || config.fighter1Description?.match(/(\w+)\s*shorts/i)?.[1] || '';
 
   if (config.analysisType === 'both') {
     fighterContext = `
 ANALYZING: Both Fighters
-FIGHTER 1: ${config.fighter1Name || 'Fighter 1'} (${config.fighter1Corner || 'Unknown'} Corner)
-${config.fighter1Description ? `APPEARANCE: ${config.fighter1Description}` : ''}
-FIGHTER 2: ${config.fighter2Name || 'Fighter 2'} (${config.fighter2Corner || 'Unknown'} Corner)
-${config.fighter2Description ? `APPEARANCE: ${config.fighter2Description}` : ''}`;
+
+FIGHTER A: ${config.fighter1Name || 'Fighter 1'} (${config.fighter1Corner || 'Unknown'} Corner)
+${shortsColor ? `🎯 SHORTS COLOR: ${shortsColor.toUpperCase()} - PRIMARY IDENTIFIER` : ''}
+${fighter1AppearanceStr ? `APPEARANCE: ${fighter1AppearanceStr}` : ''}
+${fighter1Background ? `DECLARED BACKGROUND: ${fighter1Background} (user-provided, may differ from observed style)` : ''}
+
+FIGHTER B: ${config.fighter2Name || 'Fighter 2'} (${config.fighter2Corner || 'Unknown'} Corner)
+${fighter2ShortsColor ? `🎯 SHORTS COLOR: ${fighter2ShortsColor.toUpperCase()} - PRIMARY IDENTIFIER` : ''}
+${fighter2AppearanceStr ? `APPEARANCE: ${fighter2AppearanceStr}` : ''}
+${fighter2Background ? `DECLARED BACKGROUND: ${fighter2Background} (user-provided, may differ from observed style)` : ''}`;
   } else {
     fighterContext = `
 ═══════════════════════════════════════════════════════════
@@ -79,12 +118,14 @@ ${config.fighter2Description ? `APPEARANCE: ${config.fighter2Description}` : ''}
 ═══════════════════════════════════════════════════════════
 NAME: ${fighterName}
 CORNER: ${config.fighter1Corner || 'Unknown'} Corner
-${shortsColor ? `SHORTS COLOR: ${shortsColor.toUpperCase()} - USE THIS TO IDENTIFY THE FIGHTER` : ''}
-${config.fighter1Description ? `PHYSICAL DESCRIPTION: ${config.fighter1Description}` : ''}
+${shortsColor ? `🎯 SHORTS COLOR: ${shortsColor.toUpperCase()} - USE THIS TO IDENTIFY THE FIGHTER` : ''}
+${fighter1AppearanceStr ? `PHYSICAL DESCRIPTION: ${fighter1AppearanceStr}` : ''}
+${fighter1Background ? `DECLARED BACKGROUND: ${fighter1Background} (user-provided - verify against observed behavior)` : ''}
 
 ⚠️ CRITICAL: You MUST identify "${fighterName}" using the visual markers above.
 ⚠️ Look for the fighter wearing ${shortsColor ? shortsColor.toUpperCase() + ' shorts' : 'the described attire'} in the ${config.fighter1Corner || ''} corner.
-⚠️ The OTHER fighter in the video is the OPPONENT - do NOT analyze their skills as if they belong to ${fighterName}.`;
+⚠️ The OTHER fighter in the video is the OPPONENT - do NOT analyze their skills as if they belong to ${fighterName}.
+${fighter1Background ? `⚠️ User says "${fighterName}" has a ${fighter1Background} background - VERIFY this matches what you observe. Report if different.` : ''}`;
   }
 
   const roleContext = {
@@ -158,7 +199,10 @@ Use camelCase for all field names. All scores are 0-100 unless noted.
   "fighterIdentification": {
     "confirmedName": "<string: the fighter name you are analyzing - should match '${fighterName}'>",
     "visualIdentifiers": "<string: how you identified them - e.g., 'Fighter wearing yellow shorts in blue corner'>",
-    "confidenceLevel": "<string: 'High', 'Medium', or 'Low' - how confident you are this is the correct fighter>"
+    "confidenceLevel": "<string: 'High', 'Medium', or 'Low' - how confident you are this is the correct fighter>",
+    "observedStyle": "<string: the fighting style you OBSERVED in the video - e.g., 'Striking-Heavy', 'Wrestling-Heavy', 'Mixed', 'BJJ-Focused'>",
+    "declaredBackground": "${fighter1Background || 'Not specified'}",
+    "styleMismatch": <boolean: true if observedStyle differs significantly from declaredBackground, false otherwise>
   },
 
   "executiveSummary": {
