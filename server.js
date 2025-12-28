@@ -328,7 +328,6 @@ ${fighter1Background ? `DECLARED BACKGROUND: ${fighter1Background} (user-provide
 ⚠️ Look for the fighter wearing ${shortsColor ? shortsColor.toUpperCase() + ' shorts' : 'the described attire'} in the ${config.fighter1Corner || ''} corner.
 ⚠️ The OTHER fighter in the video is the OPPONENT - do NOT analyze their skills as if they belong to ${fighterName}.
 ${fighter1Background ? `⚠️ User says "${fighterName}" has a ${fighter1Background} background - VERIFY this matches what you observe. Report if different.` : ''}`;
-  }
 
   const roleContext = {
     'fighter': 'Fighter preparing to face this opponent',
