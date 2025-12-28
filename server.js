@@ -1065,12 +1065,13 @@ async function analyzeWithClaude(frames, config) {
   console.log(`Calling Claude API with ${frameCount} frames...`);
   console.log(`Analysis started at: ${new Date().toISOString()}`);
 
-  // Create AbortController for timeout (5 minutes max for video analysis)
+  // Create AbortController for timeout (8 minutes max for video analysis)
+  // Increased from 5 minutes to handle longer videos with more frames
   const controller = new AbortController();
   const timeoutId = setTimeout(() => {
     controller.abort();
-    console.error('Claude API call timed out after 5 minutes');
-  }, 5 * 60 * 1000); // 5 minutes
+    console.error('Claude API call timed out after 8 minutes');
+  }, 8 * 60 * 1000); // 8 minutes
 
   let response;
   try {
@@ -1089,9 +1090,26 @@ async function analyzeWithClaude(frames, config) {
   } catch (apiError) {
     clearTimeout(timeoutId);
     if (apiError.name === 'AbortError') {
-      throw new Error('TIMEOUT: Analysis took too long. Please try with a shorter video or fewer frames. Your credit should be refunded.');
+      throw new Error('TIMEOUT: Analysis took too long (8+ minutes). Please try with a shorter video or fewer frames.');
     }
-    throw apiError;
+    // Provide more specific error messages for Claude API errors
+    const errorMessage = apiError.message || 'Unknown API error';
+    console.error('Claude API error details:', {
+      name: apiError.name,
+      message: errorMessage,
+      status: apiError.status,
+      type: apiError.type
+    });
+
+    if (apiError.status === 429) {
+      throw new Error('API_RATE_LIMIT: The service is temporarily busy. Please try again in a few minutes.');
+    } else if (apiError.status === 400) {
+      throw new Error('API_BAD_REQUEST: Invalid request to AI service. ' + errorMessage);
+    } else if (apiError.status === 500 || apiError.status === 502 || apiError.status === 503) {
+      throw new Error('API_SERVICE_ERROR: AI service is temporarily unavailable. Please try again later.');
+    } else {
+      throw new Error('API_ERROR: ' + errorMessage);
+    }
   } finally {
     clearTimeout(timeoutId);
   }
@@ -2233,9 +2251,22 @@ async function processAnalysis(analysisId) {
     stored.error = error.message;
     // Always refund credit on server-side failures
     stored.shouldRefund = true;
-    stored.refundReason = error.message.includes('TIMEOUT')
-      ? 'Analysis timed out - please try with a shorter video'
-      : 'Server error during analysis';
+
+    // Provide user-friendly refund reason based on error type
+    if (error.message.includes('TIMEOUT')) {
+      stored.refundReason = 'Analysis timed out - please try with a shorter video or fewer frames';
+    } else if (error.message.includes('API_RATE_LIMIT')) {
+      stored.refundReason = 'Service temporarily busy - please try again in a few minutes';
+    } else if (error.message.includes('API_SERVICE_ERROR')) {
+      stored.refundReason = 'AI service temporarily unavailable - please try again later';
+    } else if (error.message.includes('API_BAD_REQUEST')) {
+      stored.refundReason = 'Invalid video format - please ensure the video is valid';
+    } else if (error.message.includes('JSON')) {
+      stored.refundReason = 'Analysis response was invalid - please try again';
+    } else {
+      stored.refundReason = 'Server error during analysis - please try again';
+    }
+
     delete stored.frames; // Clean up frames
     analysisStore.set(analysisId, stored);
     throw error;
