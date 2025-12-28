@@ -2224,19 +2224,30 @@ async function processAnalysis(analysisId) {
   const frames = stored.frames;
   const config = stored.config;
 
+  const startTime = Date.now();
+  const logMemory = () => Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
+
   try {
     // Update progress - starting analysis
     stored.progress = 10;
     analysisStore.set(analysisId, stored);
 
-    console.log(`Processing ${frames.length} frames with Claude...`);
+    // Calculate total frame data size
+    const totalFrameSize = frames.reduce((sum, f) => sum + f.buffer.byteLength, 0);
+    const frameSizeMB = (totalFrameSize / (1024 * 1024)).toFixed(2);
+
+    console.log(`=== ANALYSIS START: ${analysisId} ===`);
+    console.log(`Frames: ${frames.length}, Total size: ${frameSizeMB}MB, Memory: ${logMemory()}MB`);
+    console.log(`Config: ${config.analysisType}, Fighter: ${config.fighter1Name || 'N/A'}`);
 
     // Update progress
     stored.progress = 30;
     analysisStore.set(analysisId, stored);
 
     // Call Claude API with frames directly
+    console.log(`Calling Claude API... (Memory: ${logMemory()}MB)`);
     const analysisData = await analyzeWithClaude(frames, config);
+    console.log(`Claude API returned (Memory: ${logMemory()}MB, Time: ${((Date.now() - startTime) / 1000).toFixed(1)}s)`);
 
     stored.progress = 90;
     analysisStore.set(analysisId, stored);
@@ -2261,10 +2272,15 @@ async function processAnalysis(analysisId) {
     delete stored.frames; // Free up memory
     analysisStore.set(analysisId, stored);
 
-    console.log(`Analysis ${analysisId} completed successfully`);
+    const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`=== ANALYSIS COMPLETE: ${analysisId} ===`);
+    console.log(`Total time: ${totalTime}s, Final memory: ${logMemory()}MB`);
 
   } catch (error) {
-    console.error(`Analysis ${analysisId} failed:`, error);
+    const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.error(`=== ANALYSIS FAILED: ${analysisId} ===`);
+    console.error(`Failed after ${totalTime}s, Memory: ${logMemory()}MB`);
+    console.error(`Error type: ${error.name}, Message: ${error.message}`);
     stored.status = 'failed';
     stored.error = error.message;
     // Always refund credit on server-side failures
