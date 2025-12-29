@@ -198,9 +198,14 @@ function buildBothFightersPrompt(config) {
       "keyTactics": ["<DETAILED key tactic: explain WHAT, HOW, and WHY this works against ${fighterName}>", "<another detailed tactic with full context>", "<third detailed tactic>"],
       "thingsToAvoid": [
         {
-          "avoidance": "<SPECIFIC pattern from video - e.g., 'Entering on a straight line against his counter timing'>",
-          "reason": "<WHY dangerous with VIDEO EVIDENCE - e.g., 'When you enter straight, he times a pull-back counter and lands clean - visible multiple times in footage'>",
-          "alternative": "<SPECIFIC tactical fix - e.g., 'Enter behind feints, step off-line at 45 degrees, finish with level change if he leans back'>"
+          "avoidance": "<MANDATORY - SPECIFIC pattern from video to avoid>",
+          "reason": "<MANDATORY - MUST BE UNIQUE - WHY this is dangerous based on WHAT YOU SAW in the video. Reference specific observations.>",
+          "alternative": "<MANDATORY - MUST BE UNIQUE - SPECIFIC tactical fix with HOW to execute it>"
+        },
+        {
+          "avoidance": "<SECOND specific thing to avoid>",
+          "reason": "<DIFFERENT reason with different video evidence>",
+          "alternative": "<DIFFERENT tactical solution>"
         }
       ]
     },
@@ -574,31 +579,55 @@ FOR "overallStrategy":
 ❌ BAD: "Pressure and wrestle"
 ✅ GOOD: "Implement a pressure-based attack focusing on closing distance and initiating clinch exchanges. His poor takedown defense (visible when backing up) creates opportunities for reactive shots. On the feet, target the body to slow his movement and set up takedowns. If he starts finding range, immediately close distance - allowing him to establish his jab rhythm is dangerous."
 
-FOR "thingsToAvoid" - THIS IS CRITICAL, PAY ATTENTION:
+FOR "thingsToAvoid" - THIS IS ABSOLUTELY CRITICAL, READ CAREFULLY:
 
-🚫 FORBIDDEN GENERIC PHRASES (NEVER USE THESE):
-- "This pattern was identified as a vulnerability based on video analysis"
-- "Adjust your approach based on opponent reaction"
-- "Reset when necessary"
-- "This is dangerous for you"
-- "Based on analysis"
+⚠️⚠️⚠️ ALL THREE FIELDS (avoidance, reason, alternative) ARE MANDATORY ⚠️⚠️⚠️
+You MUST provide ALL three fields for EACH item in thingsToAvoid.
+Each field MUST contain UNIQUE, VIDEO-SPECIFIC content.
+NEVER leave reason or alternative empty or generic.
 
-EVERY reason MUST reference something SPECIFIC you observed.
-EVERY alternative MUST be a CONCRETE tactical adjustment.
+🚫🚫🚫 ABSOLUTELY FORBIDDEN PHRASES - USING THESE WILL FAIL THE ANALYSIS 🚫🚫🚫
+- "This pattern was identified as a vulnerability based on video analysis" ← FORBIDDEN
+- "Adjust your approach based on opponent reaction" ← FORBIDDEN
+- "Reset when necessary" ← FORBIDDEN
+- "This is dangerous for you" ← FORBIDDEN
+- "Based on analysis" ← FORBIDDEN
+- "Based on video analysis" ← FORBIDDEN
+- Any generic phrase that could apply to any fight ← FORBIDDEN
 
-❌ BAD: { "avoidance": "Don't stand and trade", "reason": "Dangerous", "alternative": "Move" }
-✅ GOOD: {
+✅ WHAT YOU MUST DO INSTEAD:
+- "reason": Describe EXACTLY what you SAW in the video. Reference specific moments, counts, or patterns.
+- "alternative": Give a SPECIFIC tactical adjustment with HOW to execute it.
+
+❌ FAILING EXAMPLE (DO NOT DO THIS):
+{
+  "avoidance": "Don't stand and trade",
+  "reason": "This pattern was identified as a vulnerability based on video analysis.",
+  "alternative": "Adjust your approach based on opponent reaction and reset when necessary."
+}
+
+✅ PASSING EXAMPLE (DO THIS):
+{
   "avoidance": "Prolonged exchanges at boxing range",
   "reason": "He has faster hands and better timing on counters - he landed clean hooks 4 times when opponent stayed in the pocket too long. Every second spent trading increases your damage accumulation.",
   "alternative": "Close the distance into clinch range or reset completely to outside range. Use feints to draw his counter, then immediately change levels for takedowns."
 }
 
-❌ BAD: { "reason": "This pattern was identified as a vulnerability", "alternative": "Adjust your approach" }
-✅ GOOD: {
+❌ ANOTHER FAILING EXAMPLE:
+{
+  "avoidance": "Backing up in straight lines",
+  "reason": "Dangerous pattern observed",
+  "alternative": "Move better"
+}
+
+✅ ANOTHER PASSING EXAMPLE:
+{
   "avoidance": "Backing up in a straight line under pressure",
-  "reason": "When pressured backward, his hands dropped and he ate the overhand right twice - once visibly hurting him",
+  "reason": "When pressured backward, his hands dropped and he ate the overhand right twice - once visibly hurting him in round 2",
   "alternative": "Circle off to his power-hand side (his right), keeping your lead hand active. If you must retreat, take an angle and counter off the exit"
 }
+
+REMEMBER: Each thingsToAvoid entry needs ALL THREE fields with UNIQUE, SPECIFIC content!
 
 FOR "tactics" in roundGamePlans:
 ❌ BAD: "Use leg kicks"
@@ -713,9 +742,14 @@ ${fighter1Background ? `⚠️ User says "${fighterName}" has a ${fighter1Backgr
     "keyTactics": ["<string: key tactic WITH detailed explanation of how and when to use it>", "<string>", "<string>", "<string>"],
     "thingsToAvoid": [
       {
-        "avoidance": "<SPECIFIC pattern from video - e.g., 'Entering on a straight line against his counter timing'>",
-        "reason": "<WHY dangerous with VIDEO EVIDENCE - e.g., 'When you enter straight, he times a pull-back counter and lands clean - visible multiple times in footage'>",
-        "alternative": "<SPECIFIC tactical fix - e.g., 'Enter behind feints, step off-line at 45 degrees, finish with level change if he leans back'>"
+        "avoidance": "<MANDATORY STRING - SPECIFIC pattern from video - e.g., 'Entering on a straight line against his counter timing'>",
+        "reason": "<MANDATORY STRING - MUST BE UNIQUE AND VIDEO-SPECIFIC - Describe WHAT you SAW that makes this dangerous. e.g., 'When you enter straight, he times a pull-back counter and lands clean - visible 3 times in the footage'>",
+        "alternative": "<MANDATORY STRING - MUST BE UNIQUE AND ACTIONABLE - Give SPECIFIC tactical fix. e.g., 'Enter behind feints, step off-line at 45 degrees, finish with level change if he leans back'>"
+      },
+      {
+        "avoidance": "<SECOND specific thing to avoid based on video>",
+        "reason": "<DIFFERENT reason than above - cite different video evidence>",
+        "alternative": "<DIFFERENT alternative than above - unique tactical solution>"
       }
     ]
   },
@@ -1887,23 +1921,53 @@ function validateAndFixAnalysisData(data, config) {
         });
       }
     }
-    // Convert legacy string thingsToAvoid to new object format
+    // Convert legacy string thingsToAvoid to new object format and validate content quality
     if (data.gamePlan.thingsToAvoid && Array.isArray(data.gamePlan.thingsToAvoid)) {
-      data.gamePlan.thingsToAvoid = data.gamePlan.thingsToAvoid.map(item => {
-        // If already in new format, return as-is
+      // Forbidden template phrases that indicate Claude didn't generate specific content
+      const forbiddenPhrases = [
+        'this pattern was identified as a vulnerability',
+        'adjust your approach based on opponent',
+        'reset when necessary',
+        'based on video analysis',
+        'based on analysis',
+        'dangerous pattern observed',
+        'move better'
+      ];
+
+      const isTemplatedContent = (text) => {
+        if (!text || typeof text !== 'string') return true;
+        const lowerText = text.toLowerCase();
+        return forbiddenPhrases.some(phrase => lowerText.includes(phrase)) || text.length < 20;
+      };
+
+      data.gamePlan.thingsToAvoid = data.gamePlan.thingsToAvoid.map((item, index) => {
+        // If already in new format, check quality
         if (typeof item === 'object' && item.avoidance) {
+          const reason = ensureString(item.reason, '');
+          const alternative = ensureString(item.alternative, '');
+
+          // Check if Claude provided empty or templated content
+          if (!reason || isTemplatedContent(reason)) {
+            console.warn(`WARNING: thingsToAvoid[${index}].reason is missing or templated. Claude returned: "${reason}"`);
+          }
+          if (!alternative || isTemplatedContent(alternative)) {
+            console.warn(`WARNING: thingsToAvoid[${index}].alternative is missing or templated. Claude returned: "${alternative}"`);
+          }
+
           return {
             avoidance: ensureString(item.avoidance, 'Unknown avoidance'),
-            reason: ensureString(item.reason, 'This pattern was identified as a vulnerability based on video analysis.'),
-            alternative: ensureString(item.alternative, 'Adjust your approach based on opponent reaction and reset when necessary.')
+            // Use fallback only if Claude provided nothing, but log it
+            reason: reason || 'Analysis shows this creates tactical disadvantage. Review video for specific timing patterns.',
+            alternative: alternative || 'Consider adjusting timing and positioning based on the specific patterns observed.'
           };
         }
         // Convert legacy string format to new object format
         if (typeof item === 'string') {
+          console.warn(`WARNING: thingsToAvoid[${index}] was in legacy string format, converting.`);
           return {
             avoidance: item,
-            reason: 'This pattern was identified as a vulnerability based on video analysis.',
-            alternative: 'Adjust your approach based on opponent reaction and reset when necessary.'
+            reason: 'Analysis shows this creates tactical disadvantage. Review video for specific timing patterns.',
+            alternative: 'Consider adjusting timing and positioning based on the specific patterns observed.'
           };
         }
         return item;
