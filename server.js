@@ -1239,8 +1239,26 @@ async function analyzeWithClaude(frames, config) {
   // Parse JSON with robust extraction
   const analysisData = extractAndParseJSON(responseText);
 
+  // DEBUG: Log raw thingsToAvoid from Claude before validation
+  if (analysisData.gamePlan?.thingsToAvoid) {
+    console.log('=== DEBUG: Raw thingsToAvoid from Claude ===');
+    console.log(JSON.stringify(analysisData.gamePlan.thingsToAvoid, null, 2));
+  } else if (analysisData.fighter1Analysis?.gamePlan?.thingsToAvoid) {
+    console.log('=== DEBUG: Raw fighter1 thingsToAvoid from Claude ===');
+    console.log(JSON.stringify(analysisData.fighter1Analysis.gamePlan.thingsToAvoid, null, 2));
+  }
+
   // Validate and fix the data to match iOS model exactly
   const validatedData = validateAndFixAnalysisData(analysisData, config);
+
+  // DEBUG: Log thingsToAvoid after validation
+  if (validatedData.gamePlan?.thingsToAvoid) {
+    console.log('=== DEBUG: thingsToAvoid after validation ===');
+    console.log(JSON.stringify(validatedData.gamePlan.thingsToAvoid, null, 2));
+  } else if (validatedData.fighter1Analysis?.gamePlan?.thingsToAvoid) {
+    console.log('=== DEBUG: fighter1 thingsToAvoid after validation ===');
+    console.log(JSON.stringify(validatedData.fighter1Analysis.gamePlan.thingsToAvoid, null, 2));
+  }
 
   return validatedData;
 }
@@ -1690,6 +1708,59 @@ function validateAndFixAnalysisData(data, config) {
           });
         }
       }
+    }
+
+    // CRITICAL: Process thingsToAvoid for both fighters mode (was missing!)
+    if (!isStudyMode && data.gamePlan && data.gamePlan.thingsToAvoid && Array.isArray(data.gamePlan.thingsToAvoid)) {
+      console.log('Processing thingsToAvoid in BOTH FIGHTERS mode...');
+
+      // Forbidden template phrases that indicate Claude didn't generate specific content
+      const forbiddenPhrases = [
+        'this pattern was identified as a vulnerability',
+        'adjust your approach based on opponent',
+        'reset when necessary',
+        'based on video analysis',
+        'based on analysis',
+        'dangerous pattern observed',
+        'move better'
+      ];
+
+      const isTemplatedContent = (text) => {
+        if (!text || typeof text !== 'string') return true;
+        const lowerText = text.toLowerCase();
+        return forbiddenPhrases.some(phrase => lowerText.includes(phrase)) || text.length < 20;
+      };
+
+      data.gamePlan.thingsToAvoid = data.gamePlan.thingsToAvoid.map((item, index) => {
+        if (typeof item === 'object' && item.avoidance) {
+          const reason = ensureString(item.reason, '');
+          const alternative = ensureString(item.alternative, '');
+
+          if (!reason || isTemplatedContent(reason)) {
+            console.warn(`BOTH_MODE WARNING: thingsToAvoid[${index}].reason is missing/templated. Claude returned: "${reason}"`);
+          }
+          if (!alternative || isTemplatedContent(alternative)) {
+            console.warn(`BOTH_MODE WARNING: thingsToAvoid[${index}].alternative is missing/templated. Claude returned: "${alternative}"`);
+          }
+
+          return {
+            avoidance: ensureString(item.avoidance, 'Unknown avoidance'),
+            reason: reason || 'This creates tactical disadvantage based on the observed patterns in the video.',
+            alternative: alternative || 'Adjust timing and positioning to counter this specific vulnerability.'
+          };
+        }
+        if (typeof item === 'string') {
+          console.warn(`BOTH_MODE WARNING: thingsToAvoid[${index}] was legacy string format.`);
+          return {
+            avoidance: item,
+            reason: 'This creates tactical disadvantage based on the observed patterns in the video.',
+            alternative: 'Adjust timing and positioning to counter this specific vulnerability.'
+          };
+        }
+        return item;
+      });
+
+      console.log('thingsToAvoid processed:', JSON.stringify(data.gamePlan.thingsToAvoid, null, 2));
     }
 
     if (!data.midFightAdjustments) {
