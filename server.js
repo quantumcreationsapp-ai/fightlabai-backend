@@ -1133,14 +1133,18 @@ async function analyzeWithClaude(frames, config) {
   // Build the content array with images as base64
   const content = [];
 
-  // Add images as base64 (Claude supports up to 20 images efficiently)
-  // We'll use a subset of frames if there are too many
-  const maxFrames = Math.min(frames.length, 20);
-  const step = Math.max(1, Math.floor(frames.length / maxFrames));
+  // Process up to 100 frames (Claude API limit for optimal performance)
+  // All frames are strategically sampled by iOS, so no additional filtering needed
+  // iOS frame distribution: 25% early, 35% mid (peak activity), 25% late, 15% transitions
+  const maxFrames = Math.min(frames.length, 100);
 
+  // Process ALL frames sent from iOS (no skipping)
+  // iOS already did strategic sampling, so every frame matters
   let frameCount = 0;
-  for (let i = 0; i < frames.length && frameCount < maxFrames; i += step) {
+  for (let i = 0; i < maxFrames; i++) {
     const frame = frames[i];
+    if (!frame) break;
+
     const base64Data = frame.buffer.toString('base64');
 
     content.push({
@@ -1154,13 +1158,55 @@ async function analyzeWithClaude(frames, config) {
     frameCount++;
   }
 
-  // Add the analysis prompt
+  // Build frame distribution metadata to help Claude understand the sampling strategy
+  const videoDuration = config.videoDuration || 0;
+  const videoDurationMin = Math.round(videoDuration / 60);
+  const frameMetadata = `
+═══════════════════════════════════════════════════════════
+📊 STRATEGIC FRAME SAMPLING INFORMATION
+═══════════════════════════════════════════════════════════
+
+You are analyzing ${frameCount} frames from a ${videoDurationMin}-minute MMA fight, strategically distributed as follows:
+
+FRAME DISTRIBUTION (matching typical MMA fight dynamics):
+┌─────────────────────────────────────────────────────────────┐
+│ Early Fight (0-33% of video): ~${Math.round(frameCount * 0.25)} frames                │
+│   Focus: Opening speed, timing, stance, initial style reads │
+│   Sampling: Moderate density                                │
+├─────────────────────────────────────────────────────────────┤
+│ Mid Fight (33-66% of video): ~${Math.round(frameCount * 0.35)} frames [DENSEST]       │
+│   Focus: Tactical adjustments, fatigue patterns, pressure   │
+│   Why: Peak activity period with most combinations          │
+├─────────────────────────────────────────────────────────────┤
+│ Late Fight (66-90% of video): ~${Math.round(frameCount * 0.25)} frames                │
+│   Focus: Cardio decline, fatigue-induced mistakes           │
+│   Importance: Desperation moves, endurance indicators       │
+├─────────────────────────────────────────────────────────────┤
+│ Key Transitions (throughout): ~${Math.round(frameCount * 0.15)} frames                │
+│   Focus: Takedowns, knockdowns, clinch entries              │
+│   Why: Critical moments captured with spike sampling        │
+└─────────────────────────────────────────────────────────────┘
+
+FRAME QUALITY: 1280x720 resolution for detailed technique analysis
+- Hand positioning, footwork, stance, and guard are clearly visible
+- Use this detail level for precise tactical observations
+
+USE THIS DISTRIBUTION TO PROVIDE INSIGHTS INTO:
+1. How the fighter's tactics evolved from early → mid → late phases
+2. Fatigue impact on technique quality and decision-making
+3. Critical transition moments and their outcomes
+4. Pattern changes under pressure (mid-fight is most revealing)
+
+`;
+
+  // Add the analysis prompt with frame metadata
   content.push({
     type: 'text',
-    text: prompt,
+    text: frameMetadata + prompt,
   });
 
-  console.log(`Calling Claude API with ${frameCount} frames...`);
+  console.log(`📊 Sending ${frameCount} strategically sampled frames to Claude API`);
+  console.log(`   Distribution: ~${Math.round(frameCount * 0.25)} early, ~${Math.round(frameCount * 0.35)} mid, ~${Math.round(frameCount * 0.25)} late, ~${Math.round(frameCount * 0.15)} transitions`);
   console.log(`Analysis started at: ${new Date().toISOString()}`);
 
   // Create AbortController for timeout (12 minutes max for video analysis)
